@@ -1,0 +1,11 @@
+{
+  "tsh.more_messages": "+%s more",
+  "tsh.options.title": "TeamSpeak HUD",
+  "tsh.options.description": "Connects to your local TeamSpeak client via the ClientQuery plugin and shows who is in your channel and who is talking while you play.",
+  "tsh.options.enabled": "Enabled",
+  "tsh.options.enabled.description": "Turns TeamSpeak HUD on or off. Disabling it closes the TeamSpeak connection and hides the HUD from your screen.",
+  "tsh.options.max_displayed_members": "Max shown members: %s",
+  "tsh.options.max_displayed_members.description": "Limits how many members are listed at once, so a busy channel does not cover half your screen. Anyone beyond this limit is collapsed into a single \"+N more\" line.",
+  "tsh.options.manual_api_key": "Manual API key",
+  "tsh.options.manual_api_key.description": "Overrides the API key used to connect to TeamSpeak's ClientQuery plugin. Leave this empty to detect it automatically from clientquery.ini."
+}
