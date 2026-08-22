@@ -53,7 +53,6 @@ public class TeamSpeakHudOptionsScreen extends Screen {
 
     private boolean measuring;
     private int cursorY;
-    private int dividerY;
     private int panelX;
     private int panelY;
     private int panelHeight;
@@ -66,9 +65,6 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     @Override
     public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-
-        int contentX = this.panelX + PADDING;
-        graphics.fill(contentX, this.dividerY, contentX + CONTENT_WIDTH, this.dividerY + 1, GRAY.getRGB());
 
         for (TextLine line : this.textLines) {
             graphics.text(this.font, line.text(), line.x(), line.y(), line.color());
