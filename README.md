@@ -50,6 +50,6 @@ ModMenu settings screen to configure it.
 
 <div align="center">
 
-📥 [**Jetzt auf Modrinth herunterladen**](https://modrinth.com/mod/teamspeak-hud)
+📥 [**Download now from Modrinth**](https://modrinth.com/mod/teamspeak-hud)
 
 </div>
