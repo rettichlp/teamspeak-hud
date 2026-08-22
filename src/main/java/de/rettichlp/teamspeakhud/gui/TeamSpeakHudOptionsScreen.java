@@ -45,6 +45,9 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     private final Collection<TextLine> textLines = new ArrayList<>();
 
     private Checkbox enabledCheckbox;
+    private Checkbox pokeNotificationsCheckbox;
+    private Checkbox privateMessageNotificationsCheckbox;
+    private Checkbox channelMessageNotificationsCheckbox;
     private EditBox manualApiKeyBox;
     private int maxDisplayedMembers;
 
@@ -80,6 +83,9 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         String manualApiKey = this.manualApiKeyBox.getValue().strip();
 
         configuration.setEnabled(enabled);
+        configuration.setPokeNotificationsEnabled(this.pokeNotificationsCheckbox.selected());
+        configuration.setPrivateMessageNotificationsEnabled(this.privateMessageNotificationsCheckbox.selected());
+        configuration.setChannelMessageNotificationsEnabled(this.channelMessageNotificationsCheckbox.selected());
         configuration.setMaxDisplayedMembers(this.maxDisplayedMembers);
         configuration.setManualApiKey(manualApiKey);
         configuration.saveToFile();
@@ -123,15 +129,20 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         int contentX = this.panelX + PADDING;
 
         advanceTitle(this.title);
-        advanceGap(GAP);
-        advanceDescription(translatable("tsh.options.description"), contentX);
-        advanceGap(GAP_SECTION);
-        advanceDivider();
         advanceGap(GAP_SECTION);
 
         this.enabledCheckbox = advanceCheckbox(translatable("tsh.options.enabled"), contentX, configuration.isEnabled());
         advanceGap(GAP);
         advanceDescription(translatable("tsh.options.enabled.description"), contentX);
+        advanceGap(GAP_SECTION);
+
+        this.pokeNotificationsCheckbox = advanceCheckbox(translatable("tsh.options.notifications.poke"), contentX, configuration.isPokeNotificationsEnabled());
+        advanceGap(GAP);
+        this.privateMessageNotificationsCheckbox = advanceCheckbox(translatable("tsh.options.notifications.private_message"), contentX, configuration.isPrivateMessageNotificationsEnabled());
+        advanceGap(GAP);
+        this.channelMessageNotificationsCheckbox = advanceCheckbox(translatable("tsh.options.notifications.channel_message"), contentX, configuration.isChannelMessageNotificationsEnabled());
+        advanceGap(GAP);
+        advanceDescription(translatable("tsh.options.notifications.description"), contentX);
         advanceGap(GAP_SECTION);
 
         advanceMaxDisplayedMembersSlider(contentX);
@@ -180,11 +191,6 @@ public class TeamSpeakHudOptionsScreen extends Screen {
             }
             this.cursorY += this.font.lineHeight;
         }
-    }
-
-    private void advanceDivider() {
-        this.dividerY = this.cursorY;
-        this.cursorY += 1;
     }
 
     private Checkbox advanceCheckbox(Component message, int x, boolean selected) {

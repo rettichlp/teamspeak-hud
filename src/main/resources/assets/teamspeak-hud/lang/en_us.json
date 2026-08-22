@@ -1,11 +1,15 @@
 {
   "tsh.more_messages": "+%s more",
+  "tsh.notification.message.channel.title": "%s in %s",
   "tsh.options.title": "TeamSpeak HUD",
-  "tsh.options.description": "Connects to your local TeamSpeak client via the ClientQuery plugin and shows who is in your channel and who is talking while you play.",
   "tsh.options.enabled": "Enabled",
-  "tsh.options.enabled.description": "Turns TeamSpeak HUD on or off. Disabling it closes the TeamSpeak connection and hides the HUD from your screen.",
+  "tsh.options.enabled.description": "Toggles the TeamSpeak HUD. Disabling it closes the TeamSpeak connection and hides the HUD.",
+  "tsh.options.notifications.poke": "Poke notifications",
+  "tsh.options.notifications.private_message": "Private message notifications",
+  "tsh.options.notifications.channel_message": "Channel message notifications",
+  "tsh.options.notifications.description": "Shows a notification in the top-right corner for the selected types.",
   "tsh.options.max_displayed_members": "Max shown members: %s",
-  "tsh.options.max_displayed_members.description": "Limits how many members are listed at once, so a busy channel does not cover half your screen. Anyone beyond this limit is collapsed into a single \"+N more\" line.",
+  "tsh.options.max_displayed_members.description": "Limits how many members are listed at once.",
   "tsh.options.manual_api_key": "Manual API key",
-  "tsh.options.manual_api_key.description": "Overrides the API key used to connect to TeamSpeak's ClientQuery plugin. Leave this empty to detect it automatically from clientquery.ini."
+  "tsh.options.manual_api_key.description": "Overrides the API key used to connect to TeamSpeak's ClientQuery plugin. Leave this empty to detect it automatically."
 }

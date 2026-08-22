@@ -29,6 +29,21 @@ public class Configuration {
     private boolean enabled = true;
 
     /**
+     * Whether a toast notification is shown when the user is poked.
+     */
+    private boolean pokeNotificationsEnabled = true;
+
+    /**
+     * Whether a toast notification is shown when the user receives a private chat message.
+     */
+    private boolean privateMessageNotificationsEnabled = true;
+
+    /**
+     * Whether a toast notification is shown when the user receives a channel chat message.
+     */
+    private boolean channelMessageNotificationsEnabled = true;
+
+    /**
      * Manually configured ClientQuery API key. Empty means the key should be auto-resolved from clientquery.ini.
      */
     private String manualApiKey = "";

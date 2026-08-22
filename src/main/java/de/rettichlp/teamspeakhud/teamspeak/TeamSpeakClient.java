@@ -4,8 +4,11 @@ import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakChannel;
 import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakUser;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -32,6 +35,8 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Stream.concat;
+import static net.minecraft.network.chat.Component.literal;
+import static net.minecraft.network.chat.Component.translatable;
 
 @Getter
 public class TeamSpeakClient {
@@ -49,7 +54,12 @@ public class TeamSpeakClient {
      */
     private static final Set<String> INCREMENTAL_UPDATE_EVENTS = Set.of("notifytalkstatuschange", "notifyclientupdated");
 
-    private static final Set<String> NOTIFY_EVENTS = concat(MEMBERSHIP_EVENTS.stream(), INCREMENTAL_UPDATE_EVENTS.stream()).collect(toSet());
+    /**
+     * Notify events that trigger a toast notification rather than updating any state.
+     */
+    private static final Set<String> NOTIFICATION_EVENTS = Set.of("notifyclientpoke", "notifytextmessage");
+
+    private static final Set<String> NOTIFY_EVENTS = concat(concat(MEMBERSHIP_EVENTS.stream(), INCREMENTAL_UPDATE_EVENTS.stream()), NOTIFICATION_EVENTS.stream()).collect(toSet());
     private static final char BELL = 0x0007;
     private static final char VERTICAL_TAB = 0x000B;
 
@@ -303,6 +313,11 @@ public class TeamSpeakClient {
             return;
         }
 
+        if (NOTIFICATION_EVENTS.stream().anyMatch(line::startsWith)) {
+            onNotificationEvent(line);
+            return;
+        }
+
         // Anything left over is either the data line or the "error id=0 msg=ok" ack for whatever we last asked.
         switch (this.pending) {
             case AUTH -> onAuthenticated();
@@ -425,6 +440,43 @@ public class TeamSpeakClient {
         if (user != null) {
             applyValues(user, values);
         }
+    }
+
+    private void onNotificationEvent(String line) {
+        if (line.startsWith("notifyclientpoke")) {
+            if (!configuration.isPokeNotificationsEnabled()) {
+                return;
+            }
+
+            Map<String, String> values = parseEntry(line);
+            String invokerName = values.getOrDefault("invokername", "?");
+            showToast(literal(invokerName), values.get("msg"));
+        } else if (line.startsWith("notifytextmessage")) {
+            Map<String, String> values = parseEntry(line);
+
+            // don't toast our own messages being echoed back to us
+            String invokerId = values.get("invokerid");
+            if (invokerId != null && parseInt(invokerId) == this.ownClientId) {
+                return;
+            }
+
+            boolean isChannelMessage = "2".equals(values.get("targetmode"));
+            if (isChannelMessage ? !configuration.isChannelMessageNotificationsEnabled() : !configuration.isPrivateMessageNotificationsEnabled()) {
+                return;
+            }
+
+            String invokerName = values.getOrDefault("invokername", "?");
+            Component title = isChannelMessage
+                    ? translatable("tsh.notification.message.channel.title", invokerName, this.teamSpeakChannel.getName())
+                    : literal(invokerName);
+
+            showToast(title, values.get("msg"));
+        }
+    }
+
+    private void showToast(Component title, @Nullable String message) {
+        Component messageComponent = message == null || message.isEmpty() ? null : literal(message);
+        SystemToast.add(Minecraft.getInstance().gui.toastManager(), new SystemToast.SystemToastId(), title, messageComponent);
     }
 
     /**
