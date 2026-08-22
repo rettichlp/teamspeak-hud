@@ -5,7 +5,7 @@ plugins {
 
 val modId = property("mod.id") as String
 val modName = property("mod.name") as String
-val modVersion = property("mod.version") as String
+val modVersion = (findProperty("mod_version") as String?) ?: (property("mod.version") as String)
 val modGroup = property("mod.group") as String
 val mcCompat = property("mod.mc_compat") as String
 
