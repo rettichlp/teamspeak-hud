@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "teamspeak-hud",
+  "id": "${id}",
   "version": "${version}",
-  "name": "TeamSpeak HUD",
+  "name": "${name}",
   "description": "TeamSpeak Integration is a lightweight Fabric mod that connects to your local TeamSpeak 3 client and shows a small HUD overlay listing everyone currently in your TeamSpeak channel, including who's talking, muted, or away.",
   "authors": [
     "RettichLP"
@@ -26,8 +26,8 @@
   },
   "depends": {
     "fabricloader": ">=0.19.3",
-    "minecraft": "~26.2",
-    "java": ">=25",
+    "minecraft": "${minecraft}",
+    "java": ">=21",
     "fabric-api": "*"
   },
   "recommends": {
