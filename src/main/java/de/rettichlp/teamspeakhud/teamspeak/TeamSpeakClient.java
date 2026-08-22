@@ -469,6 +469,10 @@ public class TeamSpeakClient {
             user.setAway("1".equals(values.get("client_away")));
         }
 
+        if (values.containsKey("client_is_muted")) {
+            user.setLocallyMuted("1".equals(values.get("client_is_muted")));
+        }
+
         if (values.containsKey("client_is_channel_commander")) {
             user.setChannelCommander("1".equals(values.get("client_is_channel_commander")));
         }
