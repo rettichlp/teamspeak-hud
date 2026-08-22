@@ -29,6 +29,11 @@ public class Configuration {
     private boolean enabled = true;
 
     /**
+     * Whether a toast notification is shown when the local user is poked or receives a TeamSpeak chat message.
+     */
+    private boolean notificationsEnabled = true;
+
+    /**
      * Manually configured ClientQuery API key. Empty means the key should be auto-resolved from clientquery.ini.
      */
     private String manualApiKey = "";

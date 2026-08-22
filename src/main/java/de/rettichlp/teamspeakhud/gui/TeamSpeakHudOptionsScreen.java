@@ -45,6 +45,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     private final Collection<TextLine> textLines = new ArrayList<>();
 
     private Checkbox enabledCheckbox;
+    private Checkbox notificationsCheckbox;
     private EditBox manualApiKeyBox;
     private int maxDisplayedMembers;
 
@@ -80,6 +81,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         String manualApiKey = this.manualApiKeyBox.getValue().strip();
 
         configuration.setEnabled(enabled);
+        configuration.setNotificationsEnabled(this.notificationsCheckbox.selected());
         configuration.setMaxDisplayedMembers(this.maxDisplayedMembers);
         configuration.setManualApiKey(manualApiKey);
         configuration.saveToFile();
@@ -132,6 +134,11 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         this.enabledCheckbox = advanceCheckbox(translatable("tsh.options.enabled"), contentX, configuration.isEnabled());
         advanceGap(GAP);
         advanceDescription(translatable("tsh.options.enabled.description"), contentX);
+        advanceGap(GAP_SECTION);
+
+        this.notificationsCheckbox = advanceCheckbox(translatable("tsh.options.notifications"), contentX, configuration.isNotificationsEnabled());
+        advanceGap(GAP);
+        advanceDescription(translatable("tsh.options.notifications.description"), contentX);
         advanceGap(GAP_SECTION);
 
         advanceMaxDisplayedMembersSlider(contentX);
