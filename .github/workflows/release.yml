@@ -39,7 +39,7 @@ jobs:
       run: chmod +x ./gradlew
 
     - name: Build with Gradle
-      run: ./gradlew build --full-stacktrace -Pmod_version=${{ inputs.version }}
+      run: ./gradlew buildAndCollect --full-stacktrace -Pmod_version=${{ inputs.version }}
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
@@ -52,9 +52,10 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ inputs.version }}
       run: |
+        shopt -s globstar
         gh release create "$tag" \
             --target main \
             --repo="$GITHUB_REPOSITORY" \
             --title="$tag" \
             --generate-notes \
-            build/libs/*.jar
+            build/libs/**/*.jar

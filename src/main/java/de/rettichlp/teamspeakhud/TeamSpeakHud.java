@@ -30,12 +30,12 @@ public class TeamSpeakHud implements ModInitializer {
     public void onInitialize() {
         addLast(fromNamespaceAndPath(MOD_ID, "channel_members"), new TSHud(teamSpeakClient));
 
-        CLIENT_STARTED.register(_ -> {
+        CLIENT_STARTED.register(client -> {
             if (configuration.isEnabled()) {
                 teamSpeakClient.start();
             }
         });
 
-        CLIENT_STOPPING.register(_ -> teamSpeakClient.shutdown());
+        CLIENT_STOPPING.register(client -> teamSpeakClient.shutdown());
     }
 }

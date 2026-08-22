@@ -238,7 +238,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
 
     private void advanceDoneButton() {
         if (!this.measuring) {
-            addRenderableWidget(Button.builder(GUI_DONE, _ -> onClose())
+            addRenderableWidget(Button.builder(GUI_DONE, button -> onClose())
                     .pos(this.width / 2 - 75, this.cursorY)
                     .width(150)
                     .build());
