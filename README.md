@@ -15,6 +15,10 @@
 TeamSpeak Integration is a lightweight Fabric mod that connects to your local TeamSpeak 3 client and shows a small HUD overlay listing
 everyone currently in your TeamSpeak channel, including who's talking, muted, or away.
 
+> ⚠️ **Disclaimer:** This is an independent, unofficial project. I am not affiliated with, endorsed by, or sponsored by TeamSpeak
+> Systems GmbH in any way. "TeamSpeak" is a trademark of TeamSpeak Systems GmbH; it is used here solely to describe the software this
+> mod interoperates with.
+
 ## Inhaltsverzeichnis
 
 - [Installation](#installation)

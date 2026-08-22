@@ -22,6 +22,7 @@ import static de.rettichlp.teamspeakhud.gui.Icon.CHANNEL_YELLOW_SUBSCRIBED;
 import static de.rettichlp.teamspeakhud.gui.Icon.HARDWARE_INPUT_MUTED;
 import static de.rettichlp.teamspeakhud.gui.Icon.HARDWARE_OUTPUT_MUTED;
 import static de.rettichlp.teamspeakhud.gui.Icon.INPUT_MUTED;
+import static de.rettichlp.teamspeakhud.gui.Icon.LOCALLY_MUTED;
 import static de.rettichlp.teamspeakhud.gui.Icon.OUTPUT_MUTED;
 import static de.rettichlp.teamspeakhud.gui.Icon.PLAYER_COMMANDER_OFF;
 import static de.rettichlp.teamspeakhud.gui.Icon.PLAYER_COMMANDER_ON;
@@ -128,6 +129,10 @@ public class TSHud implements HudElement {
     }
 
     private Icon getIcon(@NonNull TeamSpeakUser member) {
+        if (member.isLocallyMuted()) {
+            return LOCALLY_MUTED;
+        }
+
         if (member.isOutputHardwareDisabled()) {
             return HARDWARE_OUTPUT_MUTED;
         }

@@ -27,7 +27,9 @@ public enum Icon {
     HARDWARE_INPUT_MUTED(4, 1),
     INPUT_MUTED(5, 1),
     HARDWARE_OUTPUT_MUTED(6, 1),
-    OUTPUT_MUTED(7, 1);
+    OUTPUT_MUTED(7, 1),
+
+    LOCALLY_MUTED(0, 2);
 
     private static final Identifier TEXTURE = fromNamespaceAndPath(MOD_ID, "textures/gui/sprites/teamspeak/icons.png");
     private static final int SIZE = 32;
