@@ -33,6 +33,11 @@ public class TeamSpeakUser {
     private boolean away;
 
     /**
+     * Muted locally by the local user via TeamSpeak's own "mute client" feature.
+     */
+    private boolean locallyMuted;
+
+    /**
      * Whether the user has "channel commander" mode enabled (a TeamSpeak feature that makes their talk status more prominent).
      */
     private boolean channelCommander;
