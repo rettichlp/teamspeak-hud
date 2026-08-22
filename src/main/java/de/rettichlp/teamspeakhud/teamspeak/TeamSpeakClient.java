@@ -443,11 +443,11 @@ public class TeamSpeakClient {
     }
 
     private void onNotificationEvent(String line) {
-        if (!configuration.isNotificationsEnabled()) {
-            return;
-        }
-
         if (line.startsWith("notifyclientpoke")) {
+            if (!configuration.isPokeNotificationsEnabled()) {
+                return;
+            }
+
             Map<String, String> values = parseEntry(line);
             String invokerName = values.getOrDefault("invokername", "?");
             showToast(literal(invokerName), values.get("msg"));
@@ -460,11 +460,13 @@ public class TeamSpeakClient {
                 return;
             }
 
-            String invokerName = values.getOrDefault("invokername", "?");
+            boolean isChannelMessage = "2".equals(values.get("targetmode"));
+            if (isChannelMessage ? !configuration.isChannelMessageNotificationsEnabled() : !configuration.isPrivateMessageNotificationsEnabled()) {
+                return;
+            }
 
-            // Channel messages name the channel they were sent in, since that's not otherwise obvious from the toast; private/server
-            // messages just show who sent them.
-            Component title = "2".equals(values.get("targetmode"))
+            String invokerName = values.getOrDefault("invokername", "?");
+            Component title = isChannelMessage
                     ? translatable("tsh.notification.message.channel.title", invokerName, this.teamSpeakChannel.getName())
                     : literal(invokerName);
 
