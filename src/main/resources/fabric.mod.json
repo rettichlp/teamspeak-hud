@@ -9,7 +9,9 @@
   ],
   "contact": {
     "homepage": "https://rettichlp.de/",
-    "sources": "https://github.com/rettichlp/teamspeak-hud"
+    "sources": "https://github.com/rettichlp/teamspeak-hud",
+    "issues": "https://github.com/rettichlp/teamspeak-hud/issues",
+    "discord": "https://discord.gg/mZGAAwhPHu"
   },
   "license": "Apache-2.0",
   "icon": "assets/teamspeak-hud/icon.png",
