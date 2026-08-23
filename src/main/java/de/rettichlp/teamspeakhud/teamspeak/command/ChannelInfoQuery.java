@@ -1,12 +1,13 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
+import de.rettichlp.teamspeakhud.teamspeak.model.Channel;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
 
-import static de.rettichlp.teamspeakhud.teamspeak.command.ChannelInfoQuery.Response.UNKNOWN;
 import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.parseEntry;
 import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.splitEntries;
+import static de.rettichlp.teamspeakhud.teamspeak.model.Channel.UNKNOWN;
 import static java.lang.Integer.parseInt;
 
 /**
@@ -15,7 +16,7 @@ import static java.lang.Integer.parseInt;
  * given ClientQuery version doesn't honor {@code -flags}/{@code -limits}, the extra fields are simply absent on that entry, and
  * {@link #parseResponse} falls back to "unknown" for them (never full, no password, subscribed).
  */
-public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<ChannelInfoQuery.Response> {
+public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<Channel> {
 
     @Override
     public @NonNull String commandLine() {
@@ -23,7 +24,7 @@ public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<Channe
     }
 
     @Override
-    public @NonNull Response parseResponse(@NonNull String responseLine) {
+    public @NonNull Channel parseResponse(@NonNull String responseLine) {
         for (String rawEntry : splitEntries(responseLine)) {
             Map<String, String> values = parseEntry(rawEntry);
             String cid = values.get("cid");
@@ -42,18 +43,9 @@ public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<Channe
             String subscribed = values.get("channel_flag_are_subscribed");
             boolean parsedSubscribed = subscribed == null || "1".equals(subscribed);
 
-            return new Response(name, passwordProtected, parsedMaxClients, parsedSubscribed);
+            return new Channel(this.channelId, name, passwordProtected, parsedSubscribed, parsedMaxClients);
         }
 
         return UNKNOWN;
-    }
-
-    public record Response(String name, boolean passwordProtected, int maxClients, boolean subscribed) {
-
-        /**
-         * Used when no channel list entry matches {@link #channelId} at all (e.g. we somehow lost {@code -flags}/{@code -limits}
-         * support), so a channel that no longer resolves doesn't keep showing stale data from a previous refresh.
-         */
-        public static final Response UNKNOWN = new Response("", false, -1, true);
     }
 }

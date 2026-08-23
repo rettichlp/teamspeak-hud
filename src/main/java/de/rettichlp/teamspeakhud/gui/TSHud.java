@@ -51,7 +51,7 @@ public class TSHud implements HudElement {
             return;
         }
 
-        List<Client> allTeamSpeakUsers = this.client.getTeamSpeakChannel().getClientList();
+        List<Client> allTeamSpeakUsers = this.client.getChannel().getClientList();
         if (allTeamSpeakUsers.isEmpty()) {
             return;
         }
@@ -110,13 +110,13 @@ public class TSHud implements HudElement {
     }
 
     private Icon getChannelIcon() {
-        boolean subscribed = this.client.getTeamSpeakChannel().isSubscribed();
+        boolean subscribed = this.client.getChannel().isSubscribed();
 
-        if (this.client.getTeamSpeakChannel().isFull()) {
+        if (this.client.getChannel().isFull()) {
             return subscribed ? CHANNEL_RED_SUBSCRIBED : CHANNEL_RED;
         }
 
-        if (this.client.getTeamSpeakChannel().isPasswordProtected()) {
+        if (this.client.getChannel().isPasswordProtected()) {
             return subscribed ? CHANNEL_YELLOW_SUBSCRIBED : CHANNEL_YELLOW;
         }
 
@@ -124,7 +124,7 @@ public class TSHud implements HudElement {
     }
 
     private String getChannelName() {
-        String channelName = this.client.getTeamSpeakChannel().getName();
+        String channelName = this.client.getChannel().getName();
         return channelName.isEmpty() ? "TeamSpeak" : channelName;
     }
 

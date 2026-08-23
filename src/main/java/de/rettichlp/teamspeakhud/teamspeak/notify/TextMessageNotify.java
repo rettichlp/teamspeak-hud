@@ -42,7 +42,7 @@ public record TextMessageNotify() implements TeamSpeakNotify {
 
         String invokerName = values.getOrDefault("invokername", "?");
         Component title = isChannelMessage
-                ? translatable("tsh.notification.message.channel.title", invokerName, client.getTeamSpeakChannel().getName())
+                ? translatable("tsh.notification.message.channel.title", invokerName, client.getChannel().getName())
                 : literal(invokerName);
 
         TeamSpeakNotify.showToast(title, values.get("msg"));

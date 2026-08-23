@@ -33,7 +33,7 @@ public record IncrementalUpdateNotify() implements TeamSpeakNotify {
             return;
         }
 
-        Client client = teamSpeakClient.getTeamSpeakChannel().getClients().get(parseInt(clid));
+        Client client = teamSpeakClient.getChannel().getClient(parseInt(clid));
         if (client == null) {
             return;
         }

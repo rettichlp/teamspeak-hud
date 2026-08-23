@@ -6,7 +6,7 @@ import de.rettichlp.teamspeakhud.teamspeak.command.ChannelInfoQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import de.rettichlp.teamspeakhud.teamspeak.command.WhoAmIQuery;
 import de.rettichlp.teamspeakhud.teamspeak.model.Client;
-import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakChannel;
+import de.rettichlp.teamspeakhud.teamspeak.model.Channel;
 import de.rettichlp.teamspeakhud.teamspeak.notify.ClientPokeNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.IncrementalUpdateNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.MembershipChangedNotify;
@@ -18,6 +18,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -51,7 +52,7 @@ public class TeamSpeakClient {
     );
 
     private final ApiKeyResolver apiKeyResolver = new ApiKeyResolver();
-    private final TeamSpeakChannel teamSpeakChannel = new TeamSpeakChannel();
+    private final Channel channel = new Channel();
     private final ExecutorService reader = newSingleThreadExecutor(this::newDaemonThread);
     private final ScheduledExecutorService scheduler = newSingleThreadScheduledExecutor(this::newDaemonThread);
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
@@ -242,11 +243,11 @@ public class TeamSpeakClient {
     }
 
     private void requestChannelInfo() {
-        send(new ChannelInfoQuery(this.teamSpeakChannel.getId()));
+        send(new ChannelInfoQuery(this.channel.getId()));
     }
 
     private void requestChannelMembers() {
-        send(new ChannelClientListQuery(this.teamSpeakChannel.getId()));
+        send(new ChannelClientListQuery(this.channel.getId()));
     }
 
     /**
@@ -342,31 +343,25 @@ public class TeamSpeakClient {
 
         this.ownClientId = response.clientId();
 
-        if (response.channelId() != this.teamSpeakChannel.getId()) {
+        if (response.channelId() != this.channel.getId()) {
             // We ourselves moved to a different channel: its members have no relationship to the previous channel's, so drop them
             // outright rather than diffing against them in onChannelClientList().
-            this.teamSpeakChannel.getClients().clear();
+            this.channel.getClients().clear();
         }
 
-        this.teamSpeakChannel.setId(response.channelId());
+        this.channel.setId(response.channelId());
         requestChannelInfo();
     }
 
-    private void onChannelInfo(ChannelInfoQuery.@NonNull Response response) {
-        this.teamSpeakChannel.setName(response.name());
-        this.teamSpeakChannel.setPasswordProtected(response.passwordProtected());
-        this.teamSpeakChannel.setMaxClients(response.maxClients());
-        this.teamSpeakChannel.setSubscribed(response.subscribed());
+    private void onChannelInfo(Channel channel) {
+        this.channel = channel;
 
         requestChannelMembers();
     }
 
-    private void onChannelClientList(@NonNull List<Client> clients) {
-        this.teamSpeakChannel.getClients().clear();
-
-        for (Client client : clients) {
-            this.teamSpeakChannel.getClients().put(client.getClientId(), client);
-        }
+    private void onChannelClientList(@NonNull Collection<Client> clients) {
+        this.channel.getClients().clear();
+        this.channel.getClients().addAll(clients);
     }
 
     private void cancel(Future<?> future) {

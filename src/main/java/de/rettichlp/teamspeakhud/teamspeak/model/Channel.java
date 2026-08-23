@@ -1,19 +1,28 @@
 package de.rettichlp.teamspeakhud.teamspeak.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ROOT;
 
 @Data
-public class TeamSpeakChannel {
+@AllArgsConstructor
+@RequiredArgsConstructor
+public class Channel {
 
-    private final Map<Integer, Client> clients = new LinkedHashMap<>();
+    /**
+     * Used when no channel list entry matches {@link #id} at all (e.g. we somehow lost {@code -flags}/{@code -limits}
+     * support), so a channel that no longer resolves doesn't keep showing stale data from a previous refresh.
+     */
+    public static final Channel UNKNOWN = new Channel();
+
+    private final List<Client> clients = new ArrayList<>();
 
     private int id;
     private String name = "";
@@ -36,8 +45,15 @@ public class TeamSpeakChannel {
      * without that data.
      */
     public List<Client> getClientList() {
-        List<Client> sorted = new ArrayList<>(this.clients.values());
+        List<Client> sorted = new ArrayList<>(this.clients);
         sorted.sort(comparing(entry -> entry.getNickname().toLowerCase(ROOT)));
         return sorted;
+    }
+
+    /**
+     * The client with {@code clientId}, or {@code null} if no such client is currently in this channel.
+     */
+    public @Nullable Client getClient(int clientId) {
+        return this.clients.stream().filter(client -> client.getClientId() == clientId).findFirst().orElse(null);
     }
 }
