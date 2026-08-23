@@ -2,10 +2,10 @@ package de.rettichlp.teamspeakhud.teamspeak;
 
 import de.rettichlp.teamspeakhud.teamspeak.command.AuthQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery;
-import de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery.ClientEntry;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelInfoQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import de.rettichlp.teamspeakhud.teamspeak.command.WhoAmIQuery;
+import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakChannel;
 import de.rettichlp.teamspeakhud.teamspeak.notify.ClientPokeNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.IncrementalUpdateNotify;
@@ -345,7 +345,7 @@ public class TeamSpeakClient {
         if (response.channelId() != this.teamSpeakChannel.getId()) {
             // We ourselves moved to a different channel: its members have no relationship to the previous channel's, so drop them
             // outright rather than diffing against them in onChannelClientList().
-            this.teamSpeakChannel.getMembers().clear();
+            this.teamSpeakChannel.getClients().clear();
         }
 
         this.teamSpeakChannel.setId(response.channelId());
@@ -361,11 +361,11 @@ public class TeamSpeakClient {
         requestChannelMembers();
     }
 
-    private void onChannelClientList(@NonNull List<ClientEntry> entries) {
-        this.teamSpeakChannel.getMembers().clear();
+    private void onChannelClientList(@NonNull List<Client> clients) {
+        this.teamSpeakChannel.getClients().clear();
 
-        for (ClientEntry entry : entries) {
-            this.teamSpeakChannel.getMembers().put(entry.getClientId(), entry);
+        for (Client client : clients) {
+            this.teamSpeakChannel.getClients().put(client.getClientId(), client);
         }
     }
 

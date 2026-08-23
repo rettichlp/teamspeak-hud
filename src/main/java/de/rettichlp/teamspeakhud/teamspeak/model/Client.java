@@ -1,13 +1,25 @@
 package de.rettichlp.teamspeakhud.teamspeak.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
-public class TeamSpeakUser {
+@AllArgsConstructor
+public class Client {
 
-    private final int clientId;
+    /**
+     * The unique ID of the client.
+     */
+    private int clientId;
 
-    private String nickname = "";
+    /**
+     * The nickname of the client, which is displayed in the TeamSpeak channel.
+     */
+    private String nickname;
+
+    /**
+     * Indicates whether the client is actively talking (as detected by the TeamSpeak server).
+     */
     private boolean talking;
 
     /**
@@ -30,6 +42,9 @@ public class TeamSpeakUser {
      */
     private boolean outputHardwareDisabled;
 
+    /**
+     * Indicates whether the user is marked as away in the TeamSpeak client.
+     */
     private boolean away;
 
     /**

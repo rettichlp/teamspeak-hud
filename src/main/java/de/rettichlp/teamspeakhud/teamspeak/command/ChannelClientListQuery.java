@@ -1,5 +1,6 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
+import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
@@ -13,7 +14,7 @@ import static java.lang.Integer.parseInt;
 /**
  * {@code channelclientlist cid=&lt;channelId&gt; -voice -away}: the full member list of one channel.
  */
-public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<List<ChannelClientListQuery.ClientEntry>> {
+public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<List<Client>> {
 
     @Override
     public @NonNull String commandLine() {
@@ -21,8 +22,8 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
     }
 
     @Override
-    public @NonNull List<ClientEntry> parseResponse(@NonNull String responseLine) {
-        List<ClientEntry> entries = new ArrayList<>();
+    public @NonNull List<Client> parseResponse(@NonNull String responseLine) {
+        List<Client> entries = new ArrayList<>();
 
         for (String rawEntry : splitEntries(responseLine)) {
             Map<String, String> values = parseEntry(rawEntry);
@@ -31,7 +32,7 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
                 continue;
             }
 
-            entries.add(new ClientEntry(
+            entries.add(new Client(
                     parseInt(clid),
                     values.getOrDefault("client_nickname", ""),
                     "1".equals(values.get("client_flag_talking")),
@@ -48,8 +49,5 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
         }
 
         return entries;
-    }
-
-    public record ClientEntry(int clientId, String nickname, boolean talking, boolean inputMuted, boolean outputMuted, boolean inputHardwareDisabled, boolean outputHardwareDisabled, boolean away, boolean locallyMuted, boolean channelCommander) {
     }
 }

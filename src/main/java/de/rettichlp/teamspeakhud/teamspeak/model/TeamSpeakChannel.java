@@ -13,7 +13,7 @@ import static java.util.Locale.ROOT;
 @Data
 public class TeamSpeakChannel {
 
-    private final Map<Integer, TeamSpeakUser> members = new LinkedHashMap<>();
+    private final Map<Integer, Client> clients = new LinkedHashMap<>();
 
     private int id;
     private String name = "";
@@ -25,7 +25,7 @@ public class TeamSpeakChannel {
      * Whether the channel is at its client limit, mirroring the TeamSpeak client's own red channel icon.
      */
     public boolean isFull() {
-        return this.maxClients >= 0 && this.members.size() >= this.maxClients;
+        return this.maxClients >= 0 && this.clients.size() >= this.maxClients;
     }
 
     /**
@@ -35,9 +35,9 @@ public class TeamSpeakChannel {
      * to resolve group IDs to their sort rank (group-list commands are ServerQuery-only), so alphabetical is the closest we can get
      * without that data.
      */
-    public List<TeamSpeakUser> getMemberList() {
-        List<TeamSpeakUser> sorted = new ArrayList<>(this.members.values());
-        sorted.sort(comparing(user -> user.getNickname().toLowerCase(ROOT)));
+    public List<Client> getClientList() {
+        List<Client> sorted = new ArrayList<>(this.clients.values());
+        sorted.sort(comparing(entry -> entry.getNickname().toLowerCase(ROOT)));
         return sorted;
     }
 }
