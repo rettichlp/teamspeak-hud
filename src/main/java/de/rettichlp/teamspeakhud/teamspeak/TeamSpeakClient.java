@@ -43,7 +43,7 @@ public class TeamSpeakClient {
 
     /**
      * Every notify event this mod reacts to, each owning both its ClientQuery event name(s) (for {@code clientnotifyregister}) and how
-     * it reacts once such a line arrives - see {@link #onAuthenticated} and {@link #handleLine}.
+     * it reacts once such a line arrives.
      */
     private static final List<TeamSpeakNotify> NOTIFY_EVENTS = List.of(
             new MembershipChangedNotify(),
@@ -242,29 +242,38 @@ public class TeamSpeakClient {
         });
     }
 
-    private void requestChannelInfo() {
-        new ChannelInfoQuery(this.channel.getId()).send(this);
-    }
-
-    private void requestChannelMembers() {
-        new ChannelClientListQuery(this.channel.getId()).send(this);
-    }
-
     private void handleLine(String line, int lineGeneration) {
         if (this.stopped || lineGeneration != this.generation || line.isBlank()) {
             return;
         }
 
-        // Only response to when containing at least one key=value pair.
+        // only react to lines when containing at least one key=value pair
         if (!line.contains("=")) {
             return;
         }
 
+        // handle error / auth acknowledge
         if (line.startsWith("error id=")) {
-            handleError(line);
+            boolean success = line.startsWith("error id=0");
+
+            if (this.pendingCommand instanceof AuthQuery authQuery) {
+                this.pendingCommand = null;
+                boolean authSuccess = authQuery.parseResponse(line);
+                if (authSuccess) {
+                    LOGGER.info("Connected to the TeamSpeak client");
+                } else {
+                    LOGGER.warn("TeamSpeak authentication failed: {}", line);
+                }
+                onAuthQuery(authSuccess);
+            } else if (!success) {
+                LOGGER.warn("TeamSpeak ClientQuery request failed: {}", line);
+                this.pendingCommand = null;
+            }
+
             return;
         }
 
+        // handle registered notifies
         for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
             if (notify.matches(line)) {
                 notify.handle(line, this);
@@ -272,11 +281,15 @@ public class TeamSpeakClient {
             }
         }
 
-        // Anything left over is the data line for whichever command we last asked.
+        // handle commands
+        if (this.pendingCommand instanceof AuthQuery) {
+            return;
+        }
+
         if (this.pendingCommand instanceof TeamSpeakCommand<?> command) {
             this.pendingCommand = null;
             switch (command) {
-                case AuthQuery ignored -> LOGGER.warn("Unexpected data line while awaiting auth: {}", line);
+                case AuthQuery ignored -> {}
                 case WhoAmIQuery whoAmIQuery -> onWhoAmI(whoAmIQuery.parseResponse(line));
                 case ChannelInfoQuery channelInfoQuery -> {
                     Channel parsedResponse = channelInfoQuery.parseResponse(line);
@@ -285,7 +298,8 @@ public class TeamSpeakClient {
                     this.channel.setPasswordProtected(parsedResponse.isPasswordProtected());
                     this.channel.setSubscribed(parsedResponse.isSubscribed());
                     this.channel.setMaxClients(parsedResponse.getMaxClients());
-                    requestChannelMembers();
+                    // request channel members
+                    new ChannelClientListQuery(this.channel.getId()).send(this);
                 }
                 case ChannelClientListQuery channelClientListQuery -> {
                     Collection<Client> clients = channelClientListQuery.parseResponse(line);
@@ -296,47 +310,26 @@ public class TeamSpeakClient {
         }
     }
 
-    /**
-     * Every successful ClientQuery request - not just {@code auth} - is acknowledged with exactly {@code error id=0 msg=ok}; for a
-     * data-returning command that ack arrives after the data line, once {@link #pendingCommand} is already back to {@code null}, so it
-     * has nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the only signal of its
-     * outcome.
-     */
-    private void handleError(@NonNull String line) {
-        boolean success = line.startsWith("error id=0");
+    private void onAuthQuery(@NonNull Boolean success) {
+        if (success) {
+            this.connected = true;
 
-        if (this.pendingCommand instanceof AuthQuery) {
-            if (success) {
-                onAuthenticated();
-            } else {
-                LOGGER.warn("TeamSpeak authentication failed: {}", line);
-                this.invalidApiKey = true;
-
-                TeamSpeakConnection currentConnection = this.connection;
-                if (currentConnection != null) {
-                    currentConnection.close();
+            TeamSpeakConnection currentConnection = this.connection;
+            if (currentConnection != null) {
+                for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
+                    notify.register(currentConnection);
                 }
             }
-        } else if (!success) {
-            LOGGER.warn("TeamSpeak ClientQuery request failed: {}", line);
-        }
 
-        this.pendingCommand = null;
-    }
-
-    private void onAuthenticated() {
-        this.connected = true;
-        LOGGER.info("Connected to the TeamSpeak client");
-
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection != null) {
-            for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
-                notify.register(currentConnection);
+            startHeartbeat();
+            refreshIdentity();
+        } else {
+            this.invalidApiKey = true;
+            TeamSpeakConnection currentConnection = this.connection;
+            if (currentConnection != null) {
+                currentConnection.close();
             }
         }
-
-        startHeartbeat();
-        refreshIdentity();
     }
 
     private void onWhoAmI(WhoAmIQuery.@Nullable Response response) {
@@ -346,14 +339,9 @@ public class TeamSpeakClient {
 
         this.ownClientId = response.clientId();
 
-        if (response.channelId() != this.channel.getId()) {
-            // We ourselves moved to a different channel: its members have no relationship to the previous channel's, so drop them
-            // outright rather than diffing against them in onChannelClientList().
-            this.channel.getClients().clear();
-        }
-
         this.channel.setId(response.channelId());
-        requestChannelInfo();
+        // request channel info
+        new ChannelInfoQuery(this.channel.getId()).send(this);
     }
 
     private void cancel(Future<?> future) {

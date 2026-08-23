@@ -31,9 +31,17 @@ public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, Chan
      * whether the writing succeeded.
      */
     default boolean send(@NonNull TeamSpeakClient teamSpeakClient) {
-        teamSpeakClient.setPendingCommand(this);
         TeamSpeakConnection connection = teamSpeakClient.getConnection();
-        return connection != null && connection.write(commandLine());
+        if (connection == null) {
+            return false;
+        }
+
+        boolean written = connection.write(commandLine());
+        if (written) {
+            teamSpeakClient.setPendingCommand(this);
+        }
+
+        return written;
     }
 
     static @NonNull Map<String, String> parseEntry(@NonNull String entry) {

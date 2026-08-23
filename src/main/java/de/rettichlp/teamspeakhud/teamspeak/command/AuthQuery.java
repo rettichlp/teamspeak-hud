@@ -1,22 +1,22 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
+import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 
 /**
- * {@code auth apikey=...}: authenticates this ClientQuery connection. Unlike every other command, ClientQuery never sends a data line
- * for this - only the {@code error id=...} ack, which {@link de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient#handleError} reacts
- * to directly; {@link #parseResponse} is therefore never actually invoked.
+ * {@code auth apikey=...}: authenticates this ClientQuery connection.
  */
-public record AuthQuery(String apiKey) implements TeamSpeakCommand<Void> {
+public record AuthQuery(String apiKey) implements TeamSpeakCommand<Boolean> {
 
     @Override
     public @NonNull String commandLine() {
         return "auth apikey=" + this.apiKey;
     }
 
+    @Contract(pure = true)
     @Override
-    public Void parseResponse(@NonNull String responseLine) {
-        throw new UnsupportedOperationException("auth never produces a data line");
+    public @NonNull Boolean parseResponse(@NonNull String responseLine) {
+        return responseLine.startsWith("error id=0");
     }
 
     /**
