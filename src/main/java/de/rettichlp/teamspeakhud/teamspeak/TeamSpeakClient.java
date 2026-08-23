@@ -5,14 +5,15 @@ import de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelInfoQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import de.rettichlp.teamspeakhud.teamspeak.command.WhoAmIQuery;
-import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import de.rettichlp.teamspeakhud.teamspeak.model.Channel;
+import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import de.rettichlp.teamspeakhud.teamspeak.notify.ClientPokeNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.IncrementalUpdateNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.MembershipChangedNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.TeamSpeakNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.TextMessageNotify;
 import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.client.Minecraft;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -57,6 +58,11 @@ public class TeamSpeakClient {
     private final ScheduledExecutorService scheduler = newSingleThreadScheduledExecutor(this::newDaemonThread);
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
 
+    /**
+     * The {@link TeamSpeakCommand} whose response we're currently waiting on, or {@code null} if none is in flight.
+     */
+    @Setter
+    private volatile TeamSpeakCommand<?> pendingCommand;
     private volatile TeamSpeakConnection connection;
     private volatile ScheduledFuture<?> heartbeatFuture;
     private volatile ScheduledFuture<?> reconnectFuture;
@@ -65,13 +71,14 @@ public class TeamSpeakClient {
     private volatile boolean connected;
     private volatile boolean invalidApiKey;
 
-    /**
-     * The {@link TeamSpeakCommand} whose response we're currently waiting on, or {@code null} if none is in flight. {@code auth} is
-     * just another {@link TeamSpeakCommand} here ({@link AuthQuery}) even though it never produces a data line - see
-     * {@link #handleError} for how its outcome is detected instead.
-     */
-    private volatile TeamSpeakCommand<?> pending;
     private int ownClientId;
+
+    /**
+     * ClientQuery unconditionally sends a fixed two-line greeting ("TS3 Client" / "Welcome to the TeamSpeak 3 ClientQuery
+     * interface...") as soon as a connection opens, before any response to anything we send - it isn't a response, an error, or a
+     * notify event, so {@link #handleLine} skips exactly this many lines per connection rather than trying to match its content.
+     */
+    private volatile int pendingGreetingLines;
 
     public void start() {
         this.stopped = false;
@@ -119,42 +126,11 @@ public class TeamSpeakClient {
         Minecraft.getInstance().execute(this::reset);
     }
 
-    private void connect(int currentGeneration) {
-        if (this.stopped || currentGeneration != this.generation) {
-            return;
-        }
-
-        String apiKey = resolveApiKey();
-        if (apiKey == null) {
-            LOGGER.info("No TeamSpeak ClientQuery API key available, retrying in {}s", RECONNECT_SECONDS);
-            onConnectionLost(currentGeneration);
-            return;
-        }
-
-        TeamSpeakConnection newConnection = new TeamSpeakConnection(currentGeneration, (line, lineGeneration) -> Minecraft.getInstance().execute(() -> handleLine(line, lineGeneration)));
-        try {
-            newConnection.open();
-        } catch (IOException e) {
-            onConnectionLost(currentGeneration);
-            return;
-        }
-
-        this.connection = newConnection;
-        if (this.stopped || currentGeneration != this.generation) {
-            newConnection.close();
-            return;
-        }
-
-        this.invalidApiKey = false;
-        send(new AuthQuery(apiKey));
-
-        // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
-        // render thread via dispatchLine().
-        newConnection.readLoop();
-
-        if (!this.stopped) {
-            onConnectionLost(currentGeneration);
-        }
+    /**
+     * Re-resolves our own client/channel via {@code whoami}. Public so {@link MembershipChangedNotify} can trigger it directly.
+     */
+    public void refreshIdentity() {
+        new WhoAmIQuery().send(this);
     }
 
     private String resolveApiKey() {
@@ -198,14 +174,53 @@ public class TeamSpeakClient {
         submit(this.reader, () -> connect(reconnectGeneration));
     }
 
-    private void reset() {
-        this.ownClientId = 0;
-        this.pending = null;
+    private void connect(int currentGeneration) {
+        if (this.stopped || currentGeneration != this.generation) {
+            return;
+        }
+
+        String apiKey = resolveApiKey();
+        if (apiKey == null) {
+            LOGGER.info("No TeamSpeak ClientQuery API key available, retrying in {}s", RECONNECT_SECONDS);
+            onConnectionLost(currentGeneration);
+            return;
+        }
+
+        TeamSpeakConnection newConnection = new TeamSpeakConnection(currentGeneration, (line, lineGeneration) -> Minecraft.getInstance().execute(() -> handleLine(line, lineGeneration)));
+        try {
+            newConnection.open();
+        } catch (IOException e) {
+            onConnectionLost(currentGeneration);
+            return;
+        }
+
+        this.connection = newConnection;
+        this.pendingGreetingLines = 2;
+        if (this.stopped || currentGeneration != this.generation) {
+            newConnection.close();
+            return;
+        }
+
+        this.invalidApiKey = false;
+        new AuthQuery(apiKey).send(this);
+
+        // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
+        // render thread via dispatchLine().
+        newConnection.readLoop();
+
+        if (!this.stopped) {
+            onConnectionLost(currentGeneration);
+        }
     }
 
     private void startHeartbeat() {
         cancel(this.heartbeatFuture);
         this.heartbeatFuture = this.scheduler.scheduleAtFixedRate(this::heartbeat, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, SECONDS);
+    }
+
+    private void reset() {
+        this.ownClientId = 0;
+        this.pendingCommand = null;
     }
 
     private void heartbeat() {
@@ -224,51 +239,32 @@ public class TeamSpeakClient {
                 return; // superseded by a stop()/reconnect() since this beat was scheduled
             }
 
-            if (this.pending != null) {
+            if (this.pendingCommand != null) {
                 return; // a request is already in flight, skip this beat rather than clobbering it
             }
 
-            if (!send(new WhoAmIQuery())) {
-                this.pending = null;
+            if (!new WhoAmIQuery().send(this)) {
+                this.pendingCommand = null;
                 onConnectionLost(this.generation);
             }
         });
     }
 
-    /**
-     * Re-resolves our own client/channel via {@code whoami}. Public so {@link MembershipChangedNotify} can trigger it directly.
-     */
-    public void refreshIdentity() {
-        send(new WhoAmIQuery());
-    }
-
     private void requestChannelInfo() {
-        send(new ChannelInfoQuery(this.channel.getId()));
+        new ChannelInfoQuery(this.channel.getId()).send(this);
     }
 
     private void requestChannelMembers() {
-        send(new ChannelClientListQuery(this.channel.getId()));
-    }
-
-    /**
-     * Marks {@code command} as the response we're now waiting for, then sends it (via {@link TeamSpeakCommand#send}), both in one go,
-     * so {@link #pending} is never left set without a matching command actually having been sent (or the other way around). Returns
-     * {@code false} if there's no connection to write to, or the write itself failed; either way {@link #pending} is left set to
-     * {@code command} for the caller to reset if it cares (most callers don't: the next data line/{@code error id=0 msg=ok} ack simply
-     * won't arrive, and the connection getting torn down cleans it up via {@link #reset()} regardless).
-     */
-    private boolean send(TeamSpeakCommand<?> command) {
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection == null) {
-            return false;
-        }
-
-        this.pending = command;
-        return command.send(currentConnection);
+        new ChannelClientListQuery(this.channel.getId()).send(this);
     }
 
     private void handleLine(String line, int lineGeneration) {
         if (this.stopped || lineGeneration != this.generation || line.isBlank()) {
+            return;
+        }
+
+        if (this.pendingGreetingLines > 0) {
+            this.pendingGreetingLines--;
             return;
         }
 
@@ -285,27 +281,39 @@ public class TeamSpeakClient {
         }
 
         // Anything left over is the data line for whichever command we last asked.
-        if (this.pending instanceof TeamSpeakCommand<?> command) {
-            this.pending = null;
+        if (this.pendingCommand instanceof TeamSpeakCommand<?> command) {
+            this.pendingCommand = null;
             switch (command) {
                 case AuthQuery ignored -> LOGGER.warn("Unexpected data line while awaiting auth: {}", line);
                 case WhoAmIQuery whoAmIQuery -> onWhoAmI(whoAmIQuery.parseResponse(line));
-                case ChannelInfoQuery channelInfoQuery -> onChannelInfo(channelInfoQuery.parseResponse(line));
-                case ChannelClientListQuery channelClientListQuery -> onChannelClientList(channelClientListQuery.parseResponse(line));
+                case ChannelInfoQuery channelInfoQuery -> {
+                    Channel parsedResponse = channelInfoQuery.parseResponse(line);
+                    this.channel.setId(parsedResponse.getId());
+                    this.channel.setName(parsedResponse.getName());
+                    this.channel.setPasswordProtected(parsedResponse.isPasswordProtected());
+                    this.channel.setSubscribed(parsedResponse.isSubscribed());
+                    this.channel.setMaxClients(parsedResponse.getMaxClients());
+                    requestChannelMembers();
+                }
+                case ChannelClientListQuery channelClientListQuery -> {
+                    Collection<Client> clients = channelClientListQuery.parseResponse(line);
+                    this.channel.getClients().clear();
+                    this.channel.getClients().addAll(clients);
+                }
             }
         }
     }
 
     /**
      * Every successful ClientQuery request - not just {@code auth} - is acknowledged with exactly {@code error id=0 msg=ok}; for a
-     * data-returning command that ack arrives after the data line, once {@link #pending} is already back to {@code null}, so it has
-     * nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the only signal of its
-     * outcome.
+     * data-returning command that ack arrives after the data line, once {@link TeamSpeakConnection#getPendingCommand} is already back
+     * to {@code null}, so it has nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the
+     * only signal of its outcome.
      */
     private void handleError(@NonNull String line) {
         boolean success = line.startsWith("error id=0");
 
-        if (this.pending instanceof AuthQuery) {
+        if (this.pendingCommand instanceof AuthQuery) {
             if (success) {
                 onAuthenticated();
             } else {
@@ -321,15 +329,18 @@ public class TeamSpeakClient {
             LOGGER.warn("TeamSpeak ClientQuery request failed: {}", line);
         }
 
-        this.pending = null;
+        this.pendingCommand = null;
     }
 
     private void onAuthenticated() {
         this.connected = true;
         LOGGER.info("Connected to the TeamSpeak client");
 
-        for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
-            notify.register(this.connection);
+        TeamSpeakConnection currentConnection = this.connection;
+        if (currentConnection != null) {
+            for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
+                notify.register(currentConnection);
+            }
         }
 
         startHeartbeat();
@@ -351,17 +362,6 @@ public class TeamSpeakClient {
 
         this.channel.setId(response.channelId());
         requestChannelInfo();
-    }
-
-    private void onChannelInfo(Channel channel) {
-        this.channel = channel;
-
-        requestChannelMembers();
-    }
-
-    private void onChannelClientList(@NonNull Collection<Client> clients) {
-        this.channel.getClients().clear();
-        this.channel.getClients().addAll(clients);
     }
 
     private void cancel(Future<?> future) {

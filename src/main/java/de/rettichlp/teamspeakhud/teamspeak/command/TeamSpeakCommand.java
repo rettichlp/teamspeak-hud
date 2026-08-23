@@ -1,5 +1,6 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
+import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakConnection;
 import org.jspecify.annotations.NonNull;
 
@@ -8,8 +9,7 @@ import java.util.Map;
 
 /**
  * One ClientQuery command: the exact command line it sends, how to write itself to the wire, and how to parse whatever data line it
- * gets back. Not every command produces a data line - {@link AuthQuery}'s outcome is only the success/failure of the request itself, so
- * its {@code parseResponse} is never actually invoked.
+ * gets back.
  */
 public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
 
@@ -27,10 +27,13 @@ public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, Chan
     R parseResponse(@NonNull String responseLine);
 
     /**
-     * Writes {@link #commandLine()} to {@code connection}. Returns whether the writing succeeded.
+     * Marks this command as the response we're now waiting for, then writes {@link #commandLine()} to {@code connection}. Returns
+     * whether the writing succeeded.
      */
-    default boolean send(@NonNull TeamSpeakConnection connection) {
-        return connection.write(commandLine());
+    default boolean send(@NonNull TeamSpeakClient teamSpeakClient) {
+        teamSpeakClient.setPendingCommand(this);
+        TeamSpeakConnection connection = teamSpeakClient.getConnection();
+        return connection != null && connection.write(commandLine());
     }
 
     static @NonNull Map<String, String> parseEntry(@NonNull String entry) {
