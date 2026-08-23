@@ -73,13 +73,6 @@ public class TeamSpeakClient {
 
     private int ownClientId;
 
-    /**
-     * ClientQuery unconditionally sends a fixed two-line greeting ("TS3 Client" / "Welcome to the TeamSpeak 3 ClientQuery
-     * interface...") as soon as a connection opens, before any response to anything we send - it isn't a response, an error, or a
-     * notify event, so {@link #handleLine} skips exactly this many lines per connection rather than trying to match its content.
-     */
-    private volatile int pendingGreetingLines;
-
     public void start() {
         this.stopped = false;
         int currentGeneration = ++this.generation;
@@ -195,7 +188,6 @@ public class TeamSpeakClient {
         }
 
         this.connection = newConnection;
-        this.pendingGreetingLines = 2;
         if (this.stopped || currentGeneration != this.generation) {
             newConnection.close();
             return;
@@ -263,8 +255,8 @@ public class TeamSpeakClient {
             return;
         }
 
-        if (this.pendingGreetingLines > 0) {
-            this.pendingGreetingLines--;
+        // Only response to when containing at least one key=value pair.
+        if (!line.contains("=")) {
             return;
         }
 
@@ -306,9 +298,9 @@ public class TeamSpeakClient {
 
     /**
      * Every successful ClientQuery request - not just {@code auth} - is acknowledged with exactly {@code error id=0 msg=ok}; for a
-     * data-returning command that ack arrives after the data line, once {@link TeamSpeakConnection#getPendingCommand} is already back
-     * to {@code null}, so it has nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the
-     * only signal of its outcome.
+     * data-returning command that ack arrives after the data line, once {@link #pendingCommand} is already back to {@code null}, so it
+     * has nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the only signal of its
+     * outcome.
      */
     private void handleError(@NonNull String line) {
         boolean success = line.startsWith("error id=0");
