@@ -1,23 +1,24 @@
 package de.rettichlp.teamspeakhud.teamspeak;
 
+import de.rettichlp.teamspeakhud.teamspeak.command.AuthQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery.ClientEntry;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelInfoQuery;
-import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakQuery;
+import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import de.rettichlp.teamspeakhud.teamspeak.command.WhoAmIQuery;
 import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakChannel;
-import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakUser;
+import de.rettichlp.teamspeakhud.teamspeak.notify.ClientPokeNotify;
+import de.rettichlp.teamspeakhud.teamspeak.notify.IncrementalUpdateNotify;
+import de.rettichlp.teamspeakhud.teamspeak.notify.MembershipChangedNotify;
+import de.rettichlp.teamspeakhud.teamspeak.notify.TeamSpeakNotify;
+import de.rettichlp.teamspeakhud.teamspeak.notify.TextMessageNotify;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -28,14 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
-import static java.lang.Integer.parseInt;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toSet;
-import static java.util.stream.Stream.concat;
-import static net.minecraft.network.chat.Component.literal;
-import static net.minecraft.network.chat.Component.translatable;
 
 @Getter
 public class TeamSpeakClient {
@@ -44,21 +40,15 @@ public class TeamSpeakClient {
     private static final long RECONNECT_SECONDS = 10L;
 
     /**
-     * Notify events meaning "who's in the channel changed".
+     * Every notify event this mod reacts to, each owning both its ClientQuery event name(s) (for {@code clientnotifyregister}) and how
+     * it reacts once such a line arrives - see {@link #onAuthenticated} and {@link #handleLine}.
      */
-    private static final Set<String> MEMBERSHIP_EVENTS = Set.of("notifycliententerview", "notifyclientleftview", "notifyclientmoved");
-
-    /**
-     * Notify events that only change one user's status.
-     */
-    private static final Set<String> INCREMENTAL_UPDATE_EVENTS = Set.of("notifytalkstatuschange", "notifyclientupdated");
-
-    /**
-     * Notify events that trigger a toast notification rather than updating any state.
-     */
-    private static final Set<String> NOTIFICATION_EVENTS = Set.of("notifyclientpoke", "notifytextmessage");
-
-    private static final Set<String> NOTIFY_EVENTS = concat(concat(MEMBERSHIP_EVENTS.stream(), INCREMENTAL_UPDATE_EVENTS.stream()), NOTIFICATION_EVENTS.stream()).collect(toSet());
+    private static final List<TeamSpeakNotify> NOTIFY_EVENTS = List.of(
+            new MembershipChangedNotify(),
+            new IncrementalUpdateNotify(),
+            new ClientPokeNotify(),
+            new TextMessageNotify()
+    );
 
     private final ApiKeyResolver apiKeyResolver = new ApiKeyResolver();
     private final TeamSpeakChannel teamSpeakChannel = new TeamSpeakChannel();
@@ -73,11 +63,13 @@ public class TeamSpeakClient {
     private volatile int generation;
     private volatile boolean connected;
     private volatile boolean invalidApiKey;
+
     /**
-     * Either {@link Pending#NONE}/{@link Pending#AUTH}, or a {@link TeamSpeakQuery} instance whose data line we're waiting on - see
-     * {@link Pending} for why this isn't a single sealed type.
+     * The {@link TeamSpeakCommand} whose response we're currently waiting on, or {@code null} if none is in flight. {@code auth} is
+     * just another {@link TeamSpeakCommand} here ({@link AuthQuery}) even though it never produces a data line - see
+     * {@link #handleError} for how its outcome is detected instead.
      */
-    private volatile Object pending = Pending.NONE;
+    private volatile TeamSpeakCommand<?> pending;
     private int ownClientId;
 
     public void start() {
@@ -138,7 +130,7 @@ public class TeamSpeakClient {
             return;
         }
 
-        TeamSpeakConnection newConnection = new TeamSpeakConnection(currentGeneration, this::dispatchLine);
+        TeamSpeakConnection newConnection = new TeamSpeakConnection(currentGeneration, (line, lineGeneration) -> Minecraft.getInstance().execute(() -> handleLine(line, lineGeneration)));
         try {
             newConnection.open();
         } catch (IOException e) {
@@ -153,7 +145,7 @@ public class TeamSpeakClient {
         }
 
         this.invalidApiKey = false;
-        sendAuth(apiKey);
+        send(new AuthQuery(apiKey));
 
         // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
         // render thread via dispatchLine().
@@ -207,7 +199,7 @@ public class TeamSpeakClient {
 
     private void reset() {
         this.ownClientId = 0;
-        this.pending = Pending.NONE;
+        this.pending = null;
     }
 
     private void startHeartbeat() {
@@ -231,74 +223,47 @@ public class TeamSpeakClient {
                 return; // superseded by a stop()/reconnect() since this beat was scheduled
             }
 
-            if (this.pending != Pending.NONE) {
+            if (this.pending != null) {
                 return; // a request is already in flight, skip this beat rather than clobbering it
             }
 
-            if (!sendQuery(new WhoAmIQuery())) {
-                this.pending = Pending.NONE;
+            if (!send(new WhoAmIQuery())) {
+                this.pending = null;
                 onConnectionLost(this.generation);
             }
         });
     }
 
-    private void refreshIdentity() {
-        sendQuery(new WhoAmIQuery());
+    /**
+     * Re-resolves our own client/channel via {@code whoami}. Public so {@link MembershipChangedNotify} can trigger it directly.
+     */
+    public void refreshIdentity() {
+        send(new WhoAmIQuery());
     }
 
     private void requestChannelInfo() {
-        sendQuery(new ChannelInfoQuery(this.teamSpeakChannel.getId()));
+        send(new ChannelInfoQuery(this.teamSpeakChannel.getId()));
     }
 
     private void requestChannelMembers() {
-        sendQuery(new ChannelClientListQuery(this.teamSpeakChannel.getId()));
+        send(new ChannelClientListQuery(this.teamSpeakChannel.getId()));
     }
 
     /**
-     * Writes a fire-and-forget command we don't act on the response of (e.g. {@code clientnotifyregister}), silently doing nothing if
-     * there's currently no connection.
+     * Marks {@code command} as the response we're now waiting for, then sends it (via {@link TeamSpeakCommand#send}), both in one go,
+     * so {@link #pending} is never left set without a matching command actually having been sent (or the other way around). Returns
+     * {@code false} if there's no connection to write to, or the write itself failed; either way {@link #pending} is left set to
+     * {@code command} for the caller to reset if it cares (most callers don't: the next data line/{@code error id=0 msg=ok} ack simply
+     * won't arrive, and the connection getting torn down cleans it up via {@link #reset()} regardless).
      */
-    private void send(String command) {
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection != null) {
-            currentConnection.write(command);
-        }
-    }
-
-    /**
-     * Marks {@link Pending#AUTH} as the response we're now waiting for, then sends the {@code auth} command, both in one go, so
-     * {@link #pending} is never left set without a matching command actually having been sent. Unlike every other request, ClientQuery
-     * never sends a data line for {@code auth} - only the success/failure of the request itself, via {@link #handleError}.
-     */
-    private void sendAuth(String apiKey) {
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection == null) {
-            return;
-        }
-
-        this.pending = Pending.AUTH;
-        currentConnection.write("auth apikey=" + apiKey);
-    }
-
-    /**
-     * Marks {@code query} as the response we're now waiting for, then sends its command line, both in one go, so {@link #pending} is
-     * never left set without a matching command actually having been sent (or the other way around). Returns {@code false} if
-     * there's no connection to write to, or the write itself failed; either way {@link #pending} is left set to {@code query} for the
-     * caller to reset if it cares (most callers don't: the next data line/{@code error id=0 msg=ok} ack simply won't arrive, and the
-     * connection getting torn down cleans it up via {@link #reset()} regardless).
-     */
-    private boolean sendQuery(TeamSpeakQuery<?> query) {
+    private boolean send(TeamSpeakCommand<?> command) {
         TeamSpeakConnection currentConnection = this.connection;
         if (currentConnection == null) {
             return false;
         }
 
-        this.pending = query;
-        return currentConnection.write(query.commandLine());
-    }
-
-    private void dispatchLine(String line, int lineGeneration) {
-        Minecraft.getInstance().execute(() -> handleLine(line, lineGeneration));
+        this.pending = command;
+        return command.send(currentConnection);
     }
 
     private void handleLine(String line, int lineGeneration) {
@@ -311,46 +276,35 @@ public class TeamSpeakClient {
             return;
         }
 
-        if (MEMBERSHIP_EVENTS.stream().anyMatch(line::startsWith)) {
-            refreshIdentity();
-            return;
+        for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
+            if (notify.matches(line)) {
+                notify.handle(line, this);
+                return;
+            }
         }
 
-        if (INCREMENTAL_UPDATE_EVENTS.stream().anyMatch(line::startsWith)) {
-            updateMemberFromNotify(line);
-            return;
-        }
-
-        if (NOTIFICATION_EVENTS.stream().anyMatch(line::startsWith)) {
-            onNotificationEvent(line);
-            return;
-        }
-
-        // Anything left over is the data line for whichever query we last asked (auth never produces one, see sendAuth()).
-        if (this.pending instanceof TeamSpeakQuery<?> query) {
-            this.pending = Pending.NONE;
-            applyQueryResponse(query, line);
-        }
-    }
-
-    private void applyQueryResponse(TeamSpeakQuery<?> query, String line) {
-        switch (query) {
-            case WhoAmIQuery whoAmIQuery -> onWhoAmI(whoAmIQuery.parseResponse(line));
-            case ChannelInfoQuery channelInfoQuery -> onChannelInfo(channelInfoQuery.parseResponse(line));
-            case ChannelClientListQuery channelClientListQuery -> onChannelClientList(channelClientListQuery.parseResponse(line));
+        // Anything left over is the data line for whichever command we last asked.
+        if (this.pending instanceof TeamSpeakCommand<?> command) {
+            this.pending = null;
+            switch (command) {
+                case AuthQuery ignored -> LOGGER.warn("Unexpected data line while awaiting auth: {}", line);
+                case WhoAmIQuery whoAmIQuery -> onWhoAmI(whoAmIQuery.parseResponse(line));
+                case ChannelInfoQuery channelInfoQuery -> onChannelInfo(channelInfoQuery.parseResponse(line));
+                case ChannelClientListQuery channelClientListQuery -> onChannelClientList(channelClientListQuery.parseResponse(line));
+            }
         }
     }
 
     /**
      * Every successful ClientQuery request - not just {@code auth} - is acknowledged with exactly {@code error id=0 msg=ok}; for a
-     * data-returning query that ack arrives after the data line, once {@link #pending} is already back to {@link Pending#NONE}, so it
-     * has nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the only signal of its
+     * data-returning command that ack arrives after the data line, once {@link #pending} is already back to {@code null}, so it has
+     * nothing left to do here. {@code auth} is the one request with no data line at all, so this ack is the only signal of its
      * outcome.
      */
     private void handleError(@NonNull String line) {
         boolean success = line.startsWith("error id=0");
 
-        if (this.pending == Pending.AUTH) {
+        if (this.pending instanceof AuthQuery) {
             if (success) {
                 onAuthenticated();
             } else {
@@ -366,15 +320,15 @@ public class TeamSpeakClient {
             LOGGER.warn("TeamSpeak ClientQuery request failed: {}", line);
         }
 
-        this.pending = Pending.NONE;
+        this.pending = null;
     }
 
     private void onAuthenticated() {
         this.connected = true;
         LOGGER.info("Connected to the TeamSpeak client");
 
-        for (String event : NOTIFY_EVENTS) {
-            send("clientnotifyregister schandlerid=0 event=" + event);
+        for (TeamSpeakNotify notify : NOTIFY_EVENTS) {
+            notify.register(this.connection);
         }
 
         startHeartbeat();
@@ -411,119 +365,7 @@ public class TeamSpeakClient {
         this.teamSpeakChannel.getMembers().clear();
 
         for (ClientEntry entry : entries) {
-            TeamSpeakUser user = new TeamSpeakUser(entry.clientId());
-            user.setNickname(entry.nickname());
-            user.setTalking(entry.talking());
-            user.setInputMuted(entry.inputMuted());
-            user.setOutputMuted(entry.outputMuted());
-            user.setInputHardwareDisabled(entry.inputHardwareDisabled());
-            user.setOutputHardwareDisabled(entry.outputHardwareDisabled());
-            user.setAway(entry.away());
-            user.setLocallyMuted(entry.locallyMuted());
-            user.setChannelCommander(entry.channelCommander());
-
-            this.teamSpeakChannel.getMembers().put(user.getClientId(), user);
-        }
-    }
-
-    private void updateMemberFromNotify(String line) {
-        Map<String, String> values = ClientQueryLine.parseEntry(line);
-        String clid = values.get("clid");
-        if (clid == null) {
-            return;
-        }
-
-        TeamSpeakUser user = this.teamSpeakChannel.getMembers().get(parseInt(clid));
-        if (user != null) {
-            applyValues(user, values);
-        }
-    }
-
-    private void onNotificationEvent(String line) {
-        if (line.startsWith("notifyclientpoke")) {
-            if (!configuration.isPokeNotificationsEnabled()) {
-                return;
-            }
-
-            Map<String, String> values = ClientQueryLine.parseEntry(line);
-            String invokerName = values.getOrDefault("invokername", "?");
-            showToast(literal(invokerName), values.get("msg"));
-        } else if (line.startsWith("notifytextmessage")) {
-            Map<String, String> values = ClientQueryLine.parseEntry(line);
-
-            // don't toast our own messages being echoed back to us
-            String invokerId = values.get("invokerid");
-            if (invokerId != null && parseInt(invokerId) == this.ownClientId) {
-                return;
-            }
-
-            boolean isChannelMessage = "2".equals(values.get("targetmode"));
-            if (isChannelMessage ? !configuration.isChannelMessageNotificationsEnabled() : !configuration.isPrivateMessageNotificationsEnabled()) {
-                return;
-            }
-
-            String invokerName = values.getOrDefault("invokername", "?");
-            Component title = isChannelMessage
-                    ? translatable("tsh.notification.message.channel.title", invokerName, this.teamSpeakChannel.getName())
-                    : literal(invokerName);
-
-            showToast(title, values.get("msg"));
-        }
-    }
-
-    private void showToast(Component title, @Nullable String message) {
-        Component messageComponent = message == null || message.isEmpty() ? null : literal(message);
-        SystemToast.add(Minecraft.getInstance().gui.toastManager(), new SystemToast.SystemToastId(), title, messageComponent);
-    }
-
-    /**
-     * Applies whichever of these ClientQuery fields are present in {@code values} onto {@code user}. Used for incremental notify
-     * updates only (a full member refresh goes through {@link #onChannelClientList}'s {@link ClientEntry} instead), where only the
-     * field(s) that actually changed are present; hence every field is guarded by its own {@code containsKey}, rather than assuming
-     * the whole set is always there.
-     */
-    private void applyValues(TeamSpeakUser user, @NonNull Map<String, String> values) {
-        if (values.containsKey("client_nickname")) {
-            user.setNickname(values.get("client_nickname"));
-        }
-
-        if (values.containsKey("client_flag_talking")) {
-            user.setTalking("1".equals(values.get("client_flag_talking")));
-        }
-
-        // notifytalkstatuschange reports the talk state as "status" (1 = talking) instead of client_flag_talking.
-        if (values.containsKey("status")) {
-            user.setTalking("1".equals(values.get("status")));
-        }
-
-        if (values.containsKey("client_input_muted")) {
-            user.setInputMuted("1".equals(values.get("client_input_muted")));
-        }
-
-        if (values.containsKey("client_output_muted")) {
-            user.setOutputMuted("1".equals(values.get("client_output_muted")));
-        }
-
-        // client_input_hardware/client_output_hardware are 0 when no microphone/playback device is available at all, distinct from the
-        // user muting themselves.
-        if (values.containsKey("client_input_hardware")) {
-            user.setInputHardwareDisabled("0".equals(values.get("client_input_hardware")));
-        }
-
-        if (values.containsKey("client_output_hardware")) {
-            user.setOutputHardwareDisabled("0".equals(values.get("client_output_hardware")));
-        }
-
-        if (values.containsKey("client_away")) {
-            user.setAway("1".equals(values.get("client_away")));
-        }
-
-        if (values.containsKey("client_is_muted")) {
-            user.setLocallyMuted("1".equals(values.get("client_is_muted")));
-        }
-
-        if (values.containsKey("client_is_channel_commander")) {
-            user.setChannelCommander("1".equals(values.get("client_is_channel_commander")));
+            this.teamSpeakChannel.getMembers().put(entry.getClientId(), entry);
         }
     }
 
@@ -545,16 +387,5 @@ public class TeamSpeakClient {
         Thread thread = new Thread(runnable, "TeamSpeak-HUD");
         thread.setDaemon(true);
         return thread;
-    }
-
-    /**
-     * The two states {@link #pending} can be in that aren't "waiting on a particular {@link TeamSpeakQuery}'s data line": nothing in
-     * flight, or the one request ({@code auth}) that never produces a data line at all. For every other request, {@link #pending}
-     * instead holds the {@link TeamSpeakQuery} instance itself, so {@link #handleLine} can pattern-match it straight to the concrete
-     * query without an extra unwrapping step; {@link #pending} is typed {@code Object} rather than a single sealed type to allow both.
-     */
-    private enum Pending {
-        NONE,
-        AUTH
     }
 }
