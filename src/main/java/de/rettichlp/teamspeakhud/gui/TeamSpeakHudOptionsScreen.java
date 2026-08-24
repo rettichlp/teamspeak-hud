@@ -89,7 +89,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         configuration.setManualApiKey(manualApiKey);
         configuration.saveToFile();
 
-        // Only touch the connection if enablement changed, or a still-enabled mod got a different API key.
+        // only touch connection if enablement changed, or a still-enabled mod got a different API key
         if (enabled && (!wasEnabled || !manualApiKey.equals(previousApiKey))) {
             teamSpeakClient.stop();
             teamSpeakClient.start();
@@ -104,7 +104,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     protected void init() {
         this.textLines.clear();
 
-        // First pass only measures the total content height (no widgets/text are created), so the panel can be centered on screen.
+        // first pass only measures the total content height (no widgets/text are created), so the panel can be centered on screen
         this.measuring = true;
         this.cursorY = 0;
         buildLayout();
@@ -112,7 +112,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         this.panelX = this.width / 2 - PANEL_WIDTH / 2;
         this.panelY = max(10, this.height / 2 - this.panelHeight / 2);
 
-        // Second pass repeats the exact same steps, now actually placing widgets and text at their final coordinates.
+        // second pass repeats the exact same steps, now actually placing widgets and text at their final coordinates
         this.measuring = false;
         this.cursorY = this.panelY + PADDING;
         buildLayout();

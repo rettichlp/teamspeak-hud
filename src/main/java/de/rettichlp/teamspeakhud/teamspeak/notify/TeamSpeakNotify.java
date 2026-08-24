@@ -14,8 +14,7 @@ import static net.minecraft.network.chat.Component.literal;
 
 /**
  * One ClientQuery notify event: the event name(s) it's registered for via {@code clientnotifyregister}, and how it reacts once such a
- * line arrives unsolicited (i.e. not as the response to a request we sent - see
- * {@link de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand} for those instead).
+ * line arrives unsolicited.
  */
 public sealed interface TeamSpeakNotify permits MembershipChangedNotify, IncrementalUpdateNotify, ClientPokeNotify, TextMessageNotify {
 

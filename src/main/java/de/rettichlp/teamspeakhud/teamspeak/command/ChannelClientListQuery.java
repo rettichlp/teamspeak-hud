@@ -38,8 +38,6 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
                     "1".equals(values.get("client_flag_talking")),
                     "1".equals(values.get("client_input_muted")),
                     "1".equals(values.get("client_output_muted")),
-                    // client_input_hardware/client_output_hardware are 0 when no microphone/playback device is available at all,
-                    // distinct from the user muting themselves.
                     "0".equals(values.get("client_input_hardware")),
                     "0".equals(values.get("client_output_hardware")),
                     "1".equals(values.get("client_away")),

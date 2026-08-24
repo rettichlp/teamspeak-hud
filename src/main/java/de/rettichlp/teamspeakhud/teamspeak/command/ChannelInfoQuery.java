@@ -38,10 +38,8 @@ public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<Channe
             String maxClients = values.get("channel_maxclients");
             int parsedMaxClients = maxClients != null ? parseInt(maxClients) : -1;
 
-            // Defaults to true: a client is implicitly subscribed to its own current channel, so a missing field here (unsupported
-            // ClientQuery version) should not be read as "not subscribed".
             String subscribed = values.get("channel_flag_are_subscribed");
-            boolean parsedSubscribed = subscribed == null || "1".equals(subscribed);
+            boolean parsedSubscribed = subscribed == null || "1".equals(subscribed); // by default, client is subscribed to its channel
 
             return new Channel(this.channelId, name, passwordProtected, parsedSubscribed, parsedMaxClients);
         }

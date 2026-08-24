@@ -56,8 +56,7 @@ public class TSHud implements HudElement {
             return;
         }
 
-        // Cap how many rows are drawn, so a busy channel can't cover half the screen; anything beyond the cap is collapsed into a
-        // single "+N more" row instead of being silently dropped.
+        // cap how many rows are drawn, so a busy channel can't cover half the screen
         int maxDisplayed = max(1, configuration.getMaxDisplayedMembers());
         List<Client> clients = allTeamSpeakUsers.subList(0, min(allTeamSpeakUsers.size(), maxDisplayed));
         String moreText = allTeamSpeakUsers.size() > clients.size()

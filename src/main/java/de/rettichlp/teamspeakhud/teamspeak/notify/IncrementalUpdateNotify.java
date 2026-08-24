@@ -50,7 +50,6 @@ public record IncrementalUpdateNotify() implements TeamSpeakNotify {
             client.setTalking("1".equals(values.get("client_flag_talking")));
         }
 
-        // notifytalkstatuschange reports the talk state as "status" (1 = talking) instead of client_flag_talking.
         if (values.containsKey("status")) {
             client.setTalking("1".equals(values.get("status")));
         }
@@ -63,8 +62,6 @@ public record IncrementalUpdateNotify() implements TeamSpeakNotify {
             client.setOutputMuted("1".equals(values.get("client_output_muted")));
         }
 
-        // client_input_hardware/client_output_hardware are 0 when no microphone/playback device is available at all, distinct from the
-        // user muting themselves.
         if (values.containsKey("client_input_hardware")) {
             client.setInputHardwareDisabled("0".equals(values.get("client_input_hardware")));
         }

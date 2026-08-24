@@ -39,10 +39,6 @@ public class Channel {
 
     /**
      * The users currently in the channel, sorted alphabetically by nickname.
-     * <p>
-     * The TeamSpeak client itself actually sorts by channel group/role rank. However, ClientQuery's command set doesn't include a way
-     * to resolve group IDs to their sort rank (group-list commands are ServerQuery-only), so alphabetical is the closest we can get
-     * without that data.
      */
     public List<Client> getClientList() {
         List<Client> sorted = new ArrayList<>(this.clients);

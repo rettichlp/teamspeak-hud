@@ -75,6 +75,7 @@ public class TeamSpeakClient {
     /**
      * Pauses the client, e.g. when the mod is disabled in the option screen. Resumable via a later {@link #start()}. The executors are
      * left running for that.
+     *
      * @see #shutdown()
      */
     public void stop() {
@@ -140,8 +141,7 @@ public class TeamSpeakClient {
 
             new AuthQuery(apiKey).send(this);
 
-            // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
-            // render thread via dispatchLine().
+            // blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine()
             newConnection.readLoop();
 
             if (!this.stopped) {
