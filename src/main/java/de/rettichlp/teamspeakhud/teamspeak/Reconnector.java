@@ -42,6 +42,6 @@ public class Reconnector {
             return;
         }
 
-        this.client.connectAsync(reconnectGeneration);
+        this.client.connect(reconnectGeneration);
     }
 }

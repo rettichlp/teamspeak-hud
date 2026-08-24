@@ -69,22 +69,36 @@ public class TeamSpeakClient {
     public void start() {
         this.stopped = false;
         int currentGeneration = ++this.generation;
-        connectAsync(currentGeneration);
+        connect(currentGeneration);
     }
 
     /**
-     * Generation is bumped here, synchronously on the caller's thread, rather than inside {@link #stopInternal},
-     * so that a {@link #stop()} immediately followed by {@link #start()} (e.g. toggling the mod off/on in the
-     * option screen) can never race: {@code stopInternal} only tears down connections that predate the
-     * generation it captured, so a fresh connection opened by a subsequent {@code start()} is never torn down
-     * out of order.
+     * Pauses the client, e.g. when the mod is disabled in the option screen. Resumable via a later {@link #start()}. The executors are
+     * left running for that.
+     * @see #shutdown()
      */
     public void stop() {
         this.stopped = true;
         int stoppedGeneration = ++this.generation;
-        submit(this.scheduler, () -> stopInternal(stoppedGeneration));
+        submit(this.scheduler, () -> {
+            this.connected = false;
+            this.heartbeat.cancel();
+            this.reconnector.cancel();
+
+            TeamSpeakConnection currentConnection = this.connection;
+            if (currentConnection != null && currentConnection.getGeneration() <= stoppedGeneration) {
+                currentConnection.close();
+                this.connection = null;
+            }
+
+            Minecraft.getInstance().execute(this::reset);
+        });
     }
 
+    /**
+     * Tears the client down for good, e.g. when the game itself is closing. Unlike {@link #stop()}, this closes the connection
+     * synchronously on the caller's thread before killing the executors.
+     */
     public void shutdown() {
         this.stopped = true;
 
@@ -97,11 +111,44 @@ public class TeamSpeakClient {
         this.scheduler.shutdownNow();
     }
 
-    /**
-     * Re-resolves our own client/channel via {@code whoami}. Public so {@link MembershipChangedNotify} can trigger it directly.
-     */
-    public void refreshIdentity() {
-        new WhoAmIQuery().send(this);
+    public void connect(int currentGeneration) {
+        submit(this.reader, () -> {
+            if (this.stopped || currentGeneration != this.generation) {
+                return;
+            }
+
+            String apiKey = resolveApiKey();
+            if (apiKey == null) {
+                LOGGER.info("No TeamSpeak ClientQuery API key available, retrying in {}s", RECONNECT_SECONDS);
+                onConnectionLost(currentGeneration);
+                return;
+            }
+
+            TeamSpeakConnection newConnection = new TeamSpeakConnection(currentGeneration, (line, lineGeneration) -> Minecraft.getInstance().execute(() -> handleLine(line, lineGeneration)));
+            try {
+                newConnection.open();
+            } catch (IOException e) {
+                onConnectionLost(currentGeneration);
+                return;
+            }
+
+            this.connection = newConnection;
+            if (this.stopped || currentGeneration != this.generation) {
+                newConnection.close();
+                return;
+            }
+
+            this.invalidApiKey = false;
+            new AuthQuery(apiKey).send(this);
+
+            // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
+            // render thread via dispatchLine().
+            newConnection.readLoop();
+
+            if (!this.stopped) {
+                onConnectionLost(currentGeneration);
+            }
+        });
     }
 
     public void onConnectionLost(int lostGeneration) {
@@ -124,22 +171,11 @@ public class TeamSpeakClient {
         });
     }
 
-    public void connectAsync(int generation) {
-        submit(this.reader, () -> connect(generation));
-    }
-
-    private void stopInternal(int stoppedGeneration) {
-        this.connected = false;
-        this.heartbeat.cancel();
-        this.reconnector.cancel();
-
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection != null && currentConnection.getGeneration() <= stoppedGeneration) {
-            currentConnection.close();
-            this.connection = null;
-        }
-
-        Minecraft.getInstance().execute(this::reset);
+    /**
+     * Re-resolves our own client/channel via {@code whoami}.
+     */
+    public void refreshIdentity() {
+        new WhoAmIQuery().send(this);
     }
 
     private String resolveApiKey() {
@@ -149,44 +185,6 @@ public class TeamSpeakClient {
         }
 
         return this.apiKeyResolver.resolve().orElse(null);
-    }
-
-    private void connect(int currentGeneration) {
-        if (this.stopped || currentGeneration != this.generation) {
-            return;
-        }
-
-        String apiKey = resolveApiKey();
-        if (apiKey == null) {
-            LOGGER.info("No TeamSpeak ClientQuery API key available, retrying in {}s", RECONNECT_SECONDS);
-            onConnectionLost(currentGeneration);
-            return;
-        }
-
-        TeamSpeakConnection newConnection = new TeamSpeakConnection(currentGeneration, (line, lineGeneration) -> Minecraft.getInstance().execute(() -> handleLine(line, lineGeneration)));
-        try {
-            newConnection.open();
-        } catch (IOException e) {
-            onConnectionLost(currentGeneration);
-            return;
-        }
-
-        this.connection = newConnection;
-        if (this.stopped || currentGeneration != this.generation) {
-            newConnection.close();
-            return;
-        }
-
-        this.invalidApiKey = false;
-        new AuthQuery(apiKey).send(this);
-
-        // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
-        // render thread via dispatchLine().
-        newConnection.readLoop();
-
-        if (!this.stopped) {
-            onConnectionLost(currentGeneration);
-        }
     }
 
     private void reset() {
