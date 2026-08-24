@@ -19,6 +19,7 @@ import java.util.Set;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 import static java.lang.ProcessHandle.allProcesses;
 import static java.lang.System.getProperty;
+import static java.lang.System.getenv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.Files.isRegularFile;
@@ -152,7 +153,7 @@ public class ApiKeyResolver {
     }
 
     private void addRootFromEnvironment(Collection<Path> roots, String environmentVariable) {
-        String value = System.getenv(environmentVariable);
+        String value = getenv(environmentVariable);
         if (value != null && !value.isEmpty()) {
             roots.add(get(value).resolve("TS3Client"));
         }
