@@ -93,10 +93,10 @@ public class TSHud implements HudElement {
 
             MutableComponent nickname = literal(client.getNickname());
             int textY = rowY + ROW_HEIGHT / 2 - font.lineHeight / 2;
-            if (client.isRecentlyJoined()) {
+            if (client.hasJoinHighlight()) {
                 MutableComponent styledNickname = nickname.withStyle(ITALIC);
                 graphics.text(font, styledNickname, rowX + ICON_SIZE + GAP, textY, GREEN.getRGB());
-            } else if (client.isLeaving()) {
+            } else if (client.hasLeavingHighlight()) {
                 MutableComponent styledNickname = nickname.withStyle(STRIKETHROUGH);
                 graphics.text(font, styledNickname, rowX + ICON_SIZE + GAP, textY, GRAY.getRGB());
             } else {

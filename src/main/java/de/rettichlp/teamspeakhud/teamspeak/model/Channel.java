@@ -44,7 +44,7 @@ public class Channel {
      */
     public List<Client> getClientList() {
         long now = currentTimeMillis();
-        this.clients.removeIf(entry -> entry.isLeaving() && now - entry.getLeftAt() >= TRANSITION_HIGHLIGHT_DURATION_MILLIS);
+        this.clients.removeIf(entry -> entry.hasLeavingHighlight() && now - entry.getLeftAt() >= TRANSITION_HIGHLIGHT_DURATION_MILLIS);
 
         List<Client> sorted = new ArrayList<>(this.clients);
         sorted.sort(comparing(entry -> entry.getNickname().toLowerCase(ROOT)));

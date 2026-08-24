@@ -76,14 +76,14 @@ public class Client {
     /**
      * Whether this member joined recently enough to still be highlighted in the HUD.
      */
-    public boolean isRecentlyJoined() {
+    public boolean hasJoinHighlight() {
         return this.joinedAt != 0 && System.currentTimeMillis() - this.joinedAt < TRANSITION_HIGHLIGHT_DURATION_MILLIS;
     }
 
     /**
      * Whether this member has left the channel and is currently only being kept around to be highlighted in the HUD.
      */
-    public boolean isLeaving() {
+    public boolean hasLeavingHighlight() {
         return this.leftAt != 0;
     }
 }
