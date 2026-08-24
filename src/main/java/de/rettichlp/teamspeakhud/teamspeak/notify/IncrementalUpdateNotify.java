@@ -1,13 +1,13 @@
 package de.rettichlp.teamspeakhud.teamspeak.notify;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
-import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
 import java.util.Set;
 
+import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.parseEntry;
 import static java.lang.Integer.parseInt;
 
 /**
@@ -27,7 +27,7 @@ public record IncrementalUpdateNotify() implements TeamSpeakNotify {
 
     @Override
     public void handle(@NonNull String line, @NonNull TeamSpeakClient teamSpeakClient) {
-        Map<String, String> values = TeamSpeakCommand.parseEntry(line);
+        Map<String, String> values = parseEntry(line);
         String clid = values.get("clid");
         if (clid == null) {
             return;

@@ -1,7 +1,6 @@
 package de.rettichlp.teamspeakhud.teamspeak.notify;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
-import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.NonNull;
 
@@ -9,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
+import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.parseEntry;
 import static java.lang.Integer.parseInt;
 import static net.minecraft.network.chat.Component.literal;
 import static net.minecraft.network.chat.Component.translatable;
@@ -27,7 +27,7 @@ public record TextMessageNotify() implements TeamSpeakNotify {
 
     @Override
     public void handle(@NonNull String line, @NonNull TeamSpeakClient client) {
-        Map<String, String> values = TeamSpeakCommand.parseEntry(line);
+        Map<String, String> values = parseEntry(line);
 
         // don't toast our own messages being echoed back to us
         String invokerId = values.get("invokerid");

@@ -22,6 +22,7 @@ import static java.awt.Color.GRAY;
 import static java.awt.Color.WHITE;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
+import static java.lang.Math.round;
 import static net.minecraft.client.gui.components.Checkbox.getBoxSize;
 import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
 import static net.minecraft.network.chat.CommonComponents.EMPTY;
@@ -222,7 +223,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
 
                 @Override
                 protected void updateMessage() {
-                    TeamSpeakHudOptionsScreen.this.maxDisplayedMembers = MIN_DISPLAYED_MEMBERS + (int) Math.round(this.value * (MAX_DISPLAYED_MEMBERS - MIN_DISPLAYED_MEMBERS));
+                    TeamSpeakHudOptionsScreen.this.maxDisplayedMembers = MIN_DISPLAYED_MEMBERS + (int) round(this.value * (MAX_DISPLAYED_MEMBERS - MIN_DISPLAYED_MEMBERS));
                     this.setMessage(translatable("tsh.options.max_displayed_members", TeamSpeakHudOptionsScreen.this.maxDisplayedMembers));
                 }
 

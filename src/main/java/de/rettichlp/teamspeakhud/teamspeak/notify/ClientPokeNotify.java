@@ -1,13 +1,13 @@
 package de.rettichlp.teamspeakhud.teamspeak.notify;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
-import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
 import java.util.Set;
 
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
+import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.parseEntry;
 import static net.minecraft.network.chat.Component.literal;
 
 /**
@@ -28,7 +28,7 @@ public record ClientPokeNotify() implements TeamSpeakNotify {
             return;
         }
 
-        Map<String, String> values = TeamSpeakCommand.parseEntry(line);
+        Map<String, String> values = parseEntry(line);
         String invokerName = values.getOrDefault("invokername", "?");
         TeamSpeakNotify.showToast(literal(invokerName), values.get("msg"));
     }
