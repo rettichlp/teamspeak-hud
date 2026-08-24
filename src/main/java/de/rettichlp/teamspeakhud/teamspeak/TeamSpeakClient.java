@@ -37,8 +37,8 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class TeamSpeakClient {
 
     /**
-     * Every notify event this mod reacts to, each owning both its ClientQuery event name(s) (for {@code clientnotifyregister}) and how
-     * it reacts once such a line arrives.
+     * Every notification event this mod reacts to, each owning both its ClientQuery event name(s) (for {@code clientnotifyregister})
+     * and how it reacts once such a line arrives.
      */
     private static final List<TeamSpeakNotify> NOTIFY_EVENTS = List.of(
             new MembershipChangedNotify(),
@@ -63,7 +63,6 @@ public class TeamSpeakClient {
     private volatile TeamSpeakConnection connection;
     private volatile boolean stopped = true;
     private volatile boolean connected;
-    private volatile boolean invalidApiKey;
 
     private int ownClientId;
 
@@ -139,7 +138,6 @@ public class TeamSpeakClient {
                 return;
             }
 
-            this.invalidApiKey = false;
             new AuthQuery(apiKey).send(this);
 
             // Blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine() on the
@@ -205,7 +203,7 @@ public class TeamSpeakClient {
 
         // handle error / auth acknowledge
         if (line.startsWith("error id=")) {
-            boolean success = line.startsWith("error id=0");
+            boolean failure = !line.startsWith("error id=0");
 
             if (this.pendingCommand instanceof AuthQuery authQuery) {
                 this.pendingCommand = null;
@@ -216,7 +214,7 @@ public class TeamSpeakClient {
                     LOGGER.warn("TeamSpeak authentication failed: {}", line);
                 }
                 onAuthQuery(authSuccess);
-            } else if (!success) {
+            } else if (failure) {
                 LOGGER.warn("TeamSpeak ClientQuery request failed: {}", line);
                 this.pendingCommand = null;
             }
@@ -276,7 +274,6 @@ public class TeamSpeakClient {
             this.heartbeat.start();
             refreshIdentity();
         } else {
-            this.invalidApiKey = true;
             TeamSpeakConnection currentConnection = this.connection;
             if (currentConnection != null) {
                 currentConnection.close();

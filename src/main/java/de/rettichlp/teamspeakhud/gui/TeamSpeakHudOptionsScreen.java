@@ -15,6 +15,7 @@ import org.jspecify.annotations.NonNull;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import static de.rettichlp.teamspeakhud.TeamSpeakHud.MOD_NAME;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.teamSpeakClient;
 import static java.awt.Color.GRAY;
@@ -25,6 +26,7 @@ import static net.minecraft.client.gui.components.Checkbox.getBoxSize;
 import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
 import static net.minecraft.network.chat.CommonComponents.EMPTY;
 import static net.minecraft.network.chat.CommonComponents.GUI_DONE;
+import static net.minecraft.network.chat.Component.literal;
 import static net.minecraft.network.chat.Component.translatable;
 import static net.minecraft.resources.Identifier.withDefaultNamespace;
 
@@ -58,7 +60,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     private int panelHeight;
 
     public TeamSpeakHudOptionsScreen(Screen parent) {
-        super(translatable("tsh.options.title"));
+        super(literal(MOD_NAME));
         this.parent = parent;
     }
 

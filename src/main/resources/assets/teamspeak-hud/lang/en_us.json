@@ -1,7 +1,6 @@
 {
   "tsh.more_messages": "+%s more",
   "tsh.notification.message.channel.title": "%s in %s",
-  "tsh.options.title": "TeamSpeak HUD",
   "tsh.options.enabled": "Enabled",
   "tsh.options.enabled.description": "Toggles the TeamSpeak HUD. Disabling it closes the TeamSpeak connection and hides the HUD.",
   "tsh.options.notifications.poke": "Poke notifications",

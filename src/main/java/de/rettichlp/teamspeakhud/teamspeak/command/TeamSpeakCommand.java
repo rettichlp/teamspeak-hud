@@ -14,6 +14,7 @@ import java.util.Map;
 public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
 
     char BELL = 0x0007;
+
     char VERTICAL_TAB = 0x000B;
 
     /**
@@ -65,6 +66,7 @@ public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, Chan
         return line.split("\\|");
     }
 
+    @SuppressWarnings("AssignmentToForLoopParameter")
     private static @NonNull String unescape(@NonNull CharSequence value) {
         StringBuilder result = new StringBuilder(value.length());
 

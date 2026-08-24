@@ -37,10 +37,10 @@ public sealed interface TeamSpeakNotify permits MembershipChangedNotify, Increme
     }
 
     /**
-     * Writes {@link #eventNames()} to {@code connection}. Returns whether the writing succeeded.
+     * Writes {@link #eventNames()} to {@code connection}.
      */
-    default boolean register(@NonNull TeamSpeakConnection connection) {
-        return eventNames().stream().allMatch(s -> connection.write("clientnotifyregister schandlerid=0 event=" + s));
+    default void register(@NonNull TeamSpeakConnection connection) {
+        eventNames().forEach(eventName -> connection.write("clientnotifyregister schandlerid=0 event=" + eventName));
     }
 
     static void showToast(@NonNull Component title, @Nullable String message) {
