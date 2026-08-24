@@ -38,7 +38,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Getter
 public class TeamSpeakClient {
 
-    private static final long HEARTBEAT_SECONDS = 5L;
     private static final long RECONNECT_SECONDS = 10L;
 
     /**
@@ -57,6 +56,7 @@ public class TeamSpeakClient {
     private final ExecutorService reader = newSingleThreadExecutor(this::newDaemonThread);
     private final ScheduledExecutorService scheduler = newSingleThreadScheduledExecutor(this::newDaemonThread);
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
+    private final Heartbeat heartbeat = new Heartbeat(this);
 
     /**
      * The {@link TeamSpeakCommand} whose response we're currently waiting on, or {@code null} if none is in flight.
@@ -64,7 +64,6 @@ public class TeamSpeakClient {
     @Setter
     private volatile TeamSpeakCommand<?> pendingCommand;
     private volatile TeamSpeakConnection connection;
-    private volatile ScheduledFuture<?> heartbeatFuture;
     private volatile ScheduledFuture<?> reconnectFuture;
     private volatile boolean stopped = true;
     private volatile int generation;
@@ -106,7 +105,7 @@ public class TeamSpeakClient {
 
     private void stopInternal(int stoppedGeneration) {
         this.connected = false;
-        cancel(this.heartbeatFuture);
+        this.heartbeat.cancel();
         cancel(this.reconnectFuture);
         this.reconnectScheduled.set(false);
 
@@ -135,14 +134,14 @@ public class TeamSpeakClient {
         return this.apiKeyResolver.resolve().orElse(null);
     }
 
-    private void onConnectionLost(int lostGeneration) {
+    public void onConnectionLost(int lostGeneration) {
         submit(this.scheduler, () -> {
             if (this.stopped || lostGeneration != this.generation) {
                 return;
             }
 
             this.connected = false;
-            cancel(this.heartbeatFuture);
+            this.heartbeat.cancel();
 
             TeamSpeakConnection currentConnection = this.connection;
             if (currentConnection != null) {
@@ -205,41 +204,9 @@ public class TeamSpeakClient {
         }
     }
 
-    private void startHeartbeat() {
-        cancel(this.heartbeatFuture);
-        this.heartbeatFuture = this.scheduler.scheduleAtFixedRate(this::heartbeat, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, SECONDS);
-    }
-
     private void reset() {
         this.ownClientId = 0;
         this.pendingCommand = null;
-    }
-
-    private void heartbeat() {
-        if (this.stopped || !this.connected) {
-            return;
-        }
-
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection == null) {
-            onConnectionLost(this.generation);
-            return;
-        }
-
-        Minecraft.getInstance().execute(() -> {
-            if (this.stopped || currentConnection != this.connection) {
-                return; // superseded by a stop()/reconnect() since this beat was scheduled
-            }
-
-            if (this.pendingCommand != null) {
-                return; // a request is already in flight, skip this beat rather than clobbering it
-            }
-
-            if (!new WhoAmIQuery().send(this)) {
-                this.pendingCommand = null;
-                onConnectionLost(this.generation);
-            }
-        });
     }
 
     private void handleLine(String line, int lineGeneration) {
@@ -321,7 +288,7 @@ public class TeamSpeakClient {
                 }
             }
 
-            startHeartbeat();
+            this.heartbeat.start();
             refreshIdentity();
         } else {
             this.invalidApiKey = true;
