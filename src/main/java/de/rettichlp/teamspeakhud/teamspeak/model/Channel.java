@@ -8,6 +8,8 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static de.rettichlp.teamspeakhud.teamspeak.model.Client.TRANSITION_HIGHLIGHT_DURATION_MILLIS;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ROOT;
 
@@ -31,16 +33,25 @@ public class Channel {
     private int maxClients = -1; // -1 means unlimited
 
     /**
-     * Whether the channel is at its client limit, mirroring the TeamSpeak client's own red channel icon.
+     * Whether the channel is at its client limit, mirroring the TeamSpeak client's own red channel icon. Members who already left but
+     * are still lingering in {@link #clients} for the leave highlight ({@link Client#hasLeavingHighlight()}) don't count towards the
+     * limit.
      */
     public boolean isFull() {
-        return this.maxClients >= 0 && this.clients.size() >= this.maxClients;
+        if (this.maxClients < 0) {
+            return false;
+        }
+
+        return this.clients.stream().filter(client -> !client.hasLeavingHighlight()).count() >= this.maxClients;
     }
 
     /**
      * The users currently in the channel, sorted alphabetically by nickname.
      */
     public List<Client> getClientList() {
+        long now = currentTimeMillis();
+        this.clients.removeIf(entry -> entry.hasLeavingHighlight() && now - entry.getLeftAt() >= TRANSITION_HIGHLIGHT_DURATION_MILLIS);
+
         List<Client> sorted = new ArrayList<>(this.clients);
         sorted.sort(comparing(entry -> entry.getNickname().toLowerCase(ROOT)));
         return sorted;

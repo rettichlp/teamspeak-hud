@@ -8,10 +8,13 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
+import static de.rettichlp.teamspeakhud.TeamSpeakHud.MOD_ID;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
 import static de.rettichlp.teamspeakhud.gui.Icon.CHANNEL_GREEN;
 import static de.rettichlp.teamspeakhud.gui.Icon.CHANNEL_GREEN_SUBSCRIBED;
@@ -32,7 +35,11 @@ import static java.awt.Color.GRAY;
 import static java.awt.Color.WHITE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static net.minecraft.ChatFormatting.ITALIC;
+import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
+import static net.minecraft.network.chat.Component.literal;
 import static net.minecraft.network.chat.Component.translatable;
+import static net.minecraft.resources.Identifier.fromNamespaceAndPath;
 import static net.minecraft.util.ARGB.black;
 
 @RequiredArgsConstructor
@@ -42,6 +49,7 @@ public class TSHud implements HudElement {
     private static final int GAP = 2;
     private static final int ROW_HEIGHT = 9 + 2 * GAP;
     private static final int ICON_SIZE = 9;
+    private static final Identifier WAVE_SPRITE = fromNamespaceAndPath(MOD_ID, "teamspeak/wave");
 
     private final TeamSpeakClient client;
 
@@ -85,7 +93,21 @@ public class TSHud implements HudElement {
         for (Client client : clients) {
             rowY += ROW_HEIGHT;
             getIcon(client).draw(graphics, rowX, rowY + GAP, ICON_SIZE);
-            graphics.text(font, client.getNickname(), rowX + ICON_SIZE + GAP, rowY + ROW_HEIGHT / 2 - font.lineHeight / 2, WHITE.getRGB());
+
+            MutableComponent nickname = literal(client.getNickname());
+            int textY = rowY + ROW_HEIGHT / 2 - font.lineHeight / 2;
+            int textX = rowX + ICON_SIZE + GAP;
+
+            if (client.hasJoinHighlight()) {
+                graphics.blitSprite(GUI_TEXTURED, WAVE_SPRITE, textX, rowY + GAP, ICON_SIZE, ICON_SIZE);
+                textX += ICON_SIZE + GAP;
+            }
+
+            if (client.hasLeavingHighlight()) {
+                graphics.text(font, nickname.withStyle(ITALIC), textX, textY, GRAY.getRGB());
+            } else {
+                graphics.text(font, nickname, textX, textY, WHITE.getRGB());
+            }
         }
 
         if (moreText != null) {
@@ -98,6 +120,9 @@ public class TSHud implements HudElement {
         int contentWidth = ICON_SIZE + GAP + font.width(getChannelName());
         for (Client client : clients) {
             int rowWidth = ICON_SIZE + GAP + font.width(client.getNickname());
+            if (client.hasJoinHighlight()) {
+                rowWidth += ICON_SIZE + GAP;
+            }
             contentWidth = max(contentWidth, rowWidth);
         }
 
@@ -127,7 +152,7 @@ public class TSHud implements HudElement {
         return channelName.isEmpty() ? "TeamSpeak" : channelName;
     }
 
-    private Icon getIcon(Client client) {
+    private Icon getIcon(@NonNull Client client) {
         if (client.isLocallyMuted()) {
             return LOCALLY_MUTED;
         }
