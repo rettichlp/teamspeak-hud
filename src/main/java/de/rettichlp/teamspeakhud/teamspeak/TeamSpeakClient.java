@@ -19,8 +19,10 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -30,8 +32,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
 import static de.rettichlp.teamspeakhud.teamspeak.Reconnector.RECONNECT_SECONDS;
+import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 @Getter
 public class TeamSpeakClient {
@@ -252,9 +257,33 @@ public class TeamSpeakClient {
                     new ChannelClientListQuery(this.channel.getId()).send(this);
                 }
                 case ChannelClientListQuery channelClientListQuery -> {
-                    Collection<Client> clients = channelClientListQuery.parseResponse(line);
-                    this.channel.getClients().clear();
-                    this.channel.getClients().addAll(clients);
+                    Collection<Client> currentClients = channelClientListQuery.parseResponse(line);
+                    List<Client> previousClients = this.channel.getClients();
+                    Map<Integer, Client> previousClientsById = previousClients.stream().collect(toMap(Client::getClientId, identity()));
+
+                    // populating a previously empty list means this is the first list for a channel we just entered/connected to:
+                    // members were already there, not people who "just joined", so they shouldn't be highlighted
+                    boolean isInitialPopulation = previousClients.isEmpty();
+                    long now = currentTimeMillis();
+
+                    Collection<Client> merged = new ArrayList<>(currentClients.size());
+                    for (Client reportedClient : currentClients) {
+                        Client previousClient = previousClientsById.remove(reportedClient.getClientId());
+                        boolean freshlyJoined = previousClient == null || previousClient.hasLeavingHighlight();
+                        reportedClient.setJoinedAt(freshlyJoined ? (isInitialPopulation ? 0L : now) : previousClient.getJoinedAt());
+                        merged.add(reportedClient);
+                    }
+
+                    for (Client leftClient : previousClientsById.values()) {
+                        if (!leftClient.hasLeavingHighlight()) {
+                            leftClient.setLeftAt(now);
+                        }
+
+                        merged.add(leftClient);
+                    }
+
+                    previousClients.clear();
+                    previousClients.addAll(merged);
                 }
             }
         }
