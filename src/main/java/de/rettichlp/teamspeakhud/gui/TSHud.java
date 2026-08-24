@@ -8,6 +8,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.MutableComponent;
 import org.jspecify.annotations.NonNull;
 
 import java.util.List;
@@ -29,9 +30,13 @@ import static de.rettichlp.teamspeakhud.gui.Icon.PLAYER_COMMANDER_ON;
 import static de.rettichlp.teamspeakhud.gui.Icon.PLAYER_OFF;
 import static de.rettichlp.teamspeakhud.gui.Icon.PLAYER_ON;
 import static java.awt.Color.GRAY;
+import static java.awt.Color.GREEN;
 import static java.awt.Color.WHITE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static net.minecraft.ChatFormatting.ITALIC;
+import static net.minecraft.ChatFormatting.STRIKETHROUGH;
+import static net.minecraft.network.chat.Component.literal;
 import static net.minecraft.network.chat.Component.translatable;
 import static net.minecraft.util.ARGB.black;
 
@@ -85,7 +90,18 @@ public class TSHud implements HudElement {
         for (Client client : clients) {
             rowY += ROW_HEIGHT;
             getIcon(client).draw(graphics, rowX, rowY + GAP, ICON_SIZE);
-            graphics.text(font, client.getNickname(), rowX + ICON_SIZE + GAP, rowY + ROW_HEIGHT / 2 - font.lineHeight / 2, WHITE.getRGB());
+
+            MutableComponent nickname = literal(client.getNickname());
+            int textY = rowY + ROW_HEIGHT / 2 - font.lineHeight / 2;
+            if (client.isRecentlyJoined()) {
+                MutableComponent styledNickname = nickname.withStyle(ITALIC);
+                graphics.text(font, styledNickname, rowX + ICON_SIZE + GAP, textY, GREEN.getRGB());
+            } else if (client.isLeaving()) {
+                MutableComponent styledNickname = nickname.withStyle(STRIKETHROUGH);
+                graphics.text(font, styledNickname, rowX + ICON_SIZE + GAP, textY, GRAY.getRGB());
+            } else {
+                graphics.text(font, nickname, rowX + ICON_SIZE + GAP, textY, WHITE.getRGB());
+            }
         }
 
         if (moreText != null) {
@@ -127,7 +143,7 @@ public class TSHud implements HudElement {
         return channelName.isEmpty() ? "TeamSpeak" : channelName;
     }
 
-    private Icon getIcon(Client client) {
+    private Icon getIcon(@NonNull Client client) {
         if (client.isLocallyMuted()) {
             return LOCALLY_MUTED;
         }
