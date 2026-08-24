@@ -42,7 +42,9 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
                     "0".equals(values.get("client_output_hardware")),
                     "1".equals(values.get("client_away")),
                     "1".equals(values.get("client_is_muted")),
-                    "1".equals(values.get("client_is_channel_commander"))
+                    "1".equals(values.get("client_is_channel_commander")),
+                    0L,
+                    0L
             ));
         }
 

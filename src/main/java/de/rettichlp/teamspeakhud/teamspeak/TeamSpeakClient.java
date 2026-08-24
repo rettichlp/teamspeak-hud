@@ -288,7 +288,12 @@ public class TeamSpeakClient {
 
         this.ownClientId = response.clientId();
 
-        this.channel.setId(response.channelId());
+        int newChannelId = response.channelId();
+        if (newChannelId != this.channel.getId()) {
+            this.channel.getClients().clear();
+        }
+
+        this.channel.setId(newChannelId);
         // request channel info
         new ChannelInfoQuery(this.channel.getId()).send(this);
     }
