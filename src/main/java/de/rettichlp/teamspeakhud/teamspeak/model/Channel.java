@@ -8,6 +8,8 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static de.rettichlp.teamspeakhud.teamspeak.model.Client.TRANSITION_HIGHLIGHT_DURATION_MILLIS;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ROOT;
 
@@ -41,6 +43,9 @@ public class Channel {
      * The users currently in the channel, sorted alphabetically by nickname.
      */
     public List<Client> getClientList() {
+        long now = currentTimeMillis();
+        this.clients.removeIf(entry -> entry.isLeaving() && now - entry.getLeftAt() >= TRANSITION_HIGHLIGHT_DURATION_MILLIS);
+
         List<Client> sorted = new ArrayList<>(this.clients);
         sorted.sort(comparing(entry -> entry.getNickname().toLowerCase(ROOT)));
         return sorted;
