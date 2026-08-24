@@ -41,7 +41,7 @@ public class Heartbeat {
 
         TeamSpeakConnection currentConnection = this.client.getConnection();
         if (currentConnection == null) {
-            this.client.onConnectionLost(this.client.getGeneration());
+            this.client.onConnectionLost(this.client.getGeneration().get());
             return;
         }
 
@@ -56,7 +56,7 @@ public class Heartbeat {
 
             if (!new WhoAmIQuery().send(this.client)) {
                 this.client.setPendingCommand(null);
-                this.client.onConnectionLost(this.client.getGeneration());
+                this.client.onConnectionLost(this.client.getGeneration().get());
             }
         });
     }

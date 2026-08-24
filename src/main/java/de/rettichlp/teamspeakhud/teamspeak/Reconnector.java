@@ -38,7 +38,7 @@ public class Reconnector {
 
     private void reconnect(int reconnectGeneration) {
         this.scheduled.set(false);
-        if (this.client.isStopped() || reconnectGeneration != this.client.getGeneration()) {
+        if (this.client.isStopped() || reconnectGeneration != this.client.getGeneration().get()) {
             return;
         }
 

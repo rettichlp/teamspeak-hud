@@ -25,6 +25,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
@@ -46,6 +47,7 @@ public class TeamSpeakClient {
             new TextMessageNotify()
     );
 
+    private final AtomicInteger generation = new AtomicInteger();
     private final ApiKeyResolver apiKeyResolver = new ApiKeyResolver();
     private final Channel channel = new Channel();
     private final ExecutorService reader = newSingleThreadExecutor(this::newDaemonThread);
@@ -60,7 +62,6 @@ public class TeamSpeakClient {
     private volatile TeamSpeakCommand<?> pendingCommand;
     private volatile TeamSpeakConnection connection;
     private volatile boolean stopped = true;
-    private volatile int generation;
     private volatile boolean connected;
     private volatile boolean invalidApiKey;
 
@@ -68,7 +69,7 @@ public class TeamSpeakClient {
 
     public void start() {
         this.stopped = false;
-        int currentGeneration = ++this.generation;
+        int currentGeneration = this.generation.incrementAndGet();
         connect(currentGeneration);
     }
 
@@ -79,7 +80,7 @@ public class TeamSpeakClient {
      */
     public void stop() {
         this.stopped = true;
-        int stoppedGeneration = ++this.generation;
+        int stoppedGeneration = this.generation.incrementAndGet();
         submit(this.scheduler, () -> {
             this.connected = false;
             this.heartbeat.cancel();
@@ -113,7 +114,7 @@ public class TeamSpeakClient {
 
     public void connect(int currentGeneration) {
         submit(this.reader, () -> {
-            if (this.stopped || currentGeneration != this.generation) {
+            if (this.stopped || currentGeneration != this.generation.get()) {
                 return;
             }
 
@@ -133,7 +134,7 @@ public class TeamSpeakClient {
             }
 
             this.connection = newConnection;
-            if (this.stopped || currentGeneration != this.generation) {
+            if (this.stopped || currentGeneration != this.generation.get()) {
                 newConnection.close();
                 return;
             }
@@ -153,7 +154,7 @@ public class TeamSpeakClient {
 
     public void onConnectionLost(int lostGeneration) {
         submit(this.scheduler, () -> {
-            if (this.stopped || lostGeneration != this.generation) {
+            if (this.stopped || lostGeneration != this.generation.get()) {
                 return;
             }
 
@@ -193,7 +194,7 @@ public class TeamSpeakClient {
     }
 
     private void handleLine(String line, int lineGeneration) {
-        if (this.stopped || lineGeneration != this.generation || line.isBlank()) {
+        if (this.stopped || lineGeneration != this.generation.get() || line.isBlank()) {
             return;
         }
 
