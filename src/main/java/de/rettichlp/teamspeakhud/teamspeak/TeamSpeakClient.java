@@ -23,22 +23,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
+import static de.rettichlp.teamspeakhud.teamspeak.Reconnector.RECONNECT_SECONDS;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Getter
 public class TeamSpeakClient {
-
-    private static final long RECONNECT_SECONDS = 10L;
 
     /**
      * Every notify event this mod reacts to, each owning both its ClientQuery event name(s) (for {@code clientnotifyregister}) and how
@@ -55,8 +50,8 @@ public class TeamSpeakClient {
     private final Channel channel = new Channel();
     private final ExecutorService reader = newSingleThreadExecutor(this::newDaemonThread);
     private final ScheduledExecutorService scheduler = newSingleThreadScheduledExecutor(this::newDaemonThread);
-    private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
     private final Heartbeat heartbeat = new Heartbeat(this);
+    private final Reconnector reconnector = new Reconnector(this);
 
     /**
      * The {@link TeamSpeakCommand} whose response we're currently waiting on, or {@code null} if none is in flight.
@@ -64,7 +59,6 @@ public class TeamSpeakClient {
     @Setter
     private volatile TeamSpeakCommand<?> pendingCommand;
     private volatile TeamSpeakConnection connection;
-    private volatile ScheduledFuture<?> reconnectFuture;
     private volatile boolean stopped = true;
     private volatile int generation;
     private volatile boolean connected;
@@ -75,7 +69,7 @@ public class TeamSpeakClient {
     public void start() {
         this.stopped = false;
         int currentGeneration = ++this.generation;
-        submit(this.reader, () -> connect(currentGeneration));
+        connectAsync(currentGeneration);
     }
 
     /**
@@ -103,35 +97,11 @@ public class TeamSpeakClient {
         this.scheduler.shutdownNow();
     }
 
-    private void stopInternal(int stoppedGeneration) {
-        this.connected = false;
-        this.heartbeat.cancel();
-        cancel(this.reconnectFuture);
-        this.reconnectScheduled.set(false);
-
-        TeamSpeakConnection currentConnection = this.connection;
-        if (currentConnection != null && currentConnection.getGeneration() <= stoppedGeneration) {
-            currentConnection.close();
-            this.connection = null;
-        }
-
-        Minecraft.getInstance().execute(this::reset);
-    }
-
     /**
      * Re-resolves our own client/channel via {@code whoami}. Public so {@link MembershipChangedNotify} can trigger it directly.
      */
     public void refreshIdentity() {
         new WhoAmIQuery().send(this);
-    }
-
-    private String resolveApiKey() {
-        String manualApiKey = configuration.getManualApiKey().strip();
-        if (!manualApiKey.isEmpty()) {
-            return manualApiKey;
-        }
-
-        return this.apiKeyResolver.resolve().orElse(null);
     }
 
     public void onConnectionLost(int lostGeneration) {
@@ -150,20 +120,35 @@ public class TeamSpeakClient {
             }
 
             Minecraft.getInstance().execute(this::reset);
-
-            if (this.reconnectScheduled.compareAndSet(false, true)) {
-                this.reconnectFuture = this.scheduler.schedule(() -> reconnect(lostGeneration), RECONNECT_SECONDS, SECONDS);
-            }
+            this.reconnector.schedule(lostGeneration);
         });
     }
 
-    private void reconnect(int reconnectGeneration) {
-        this.reconnectScheduled.set(false);
-        if (this.stopped || reconnectGeneration != this.generation) {
-            return;
+    public void connectAsync(int generation) {
+        submit(this.reader, () -> connect(generation));
+    }
+
+    private void stopInternal(int stoppedGeneration) {
+        this.connected = false;
+        this.heartbeat.cancel();
+        this.reconnector.cancel();
+
+        TeamSpeakConnection currentConnection = this.connection;
+        if (currentConnection != null && currentConnection.getGeneration() <= stoppedGeneration) {
+            currentConnection.close();
+            this.connection = null;
         }
 
-        submit(this.reader, () -> connect(reconnectGeneration));
+        Minecraft.getInstance().execute(this::reset);
+    }
+
+    private String resolveApiKey() {
+        String manualApiKey = configuration.getManualApiKey().strip();
+        if (!manualApiKey.isEmpty()) {
+            return manualApiKey;
+        }
+
+        return this.apiKeyResolver.resolve().orElse(null);
     }
 
     private void connect(int currentGeneration) {
@@ -256,7 +241,8 @@ public class TeamSpeakClient {
         if (this.pendingCommand instanceof TeamSpeakCommand<?> command) {
             this.pendingCommand = null;
             switch (command) {
-                case AuthQuery ignored -> {}
+                case AuthQuery ignored -> {
+                }
                 case WhoAmIQuery whoAmIQuery -> onWhoAmI(whoAmIQuery.parseResponse(line));
                 case ChannelInfoQuery channelInfoQuery -> {
                     Channel parsedResponse = channelInfoQuery.parseResponse(line);
@@ -309,12 +295,6 @@ public class TeamSpeakClient {
         this.channel.setId(response.channelId());
         // request channel info
         new ChannelInfoQuery(this.channel.getId()).send(this);
-    }
-
-    private void cancel(Future<?> future) {
-        if (future != null) {
-            future.cancel(false);
-        }
     }
 
     private void submit(@NonNull Executor executor, Runnable runnable) {
