@@ -1,11 +1,11 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
-import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakConnection;
 import org.jspecify.annotations.NonNull;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * One ClientQuery command: the exact command line it sends, how to write itself to the wire, and how to parse whatever data line it
@@ -28,21 +28,19 @@ public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, Chan
     R parseResponse(@NonNull String responseLine);
 
     /**
-     * Marks this command as the response we're now waiting for, then writes {@link #commandLine()} to {@code connection}. Returns
-     * whether the writing succeeded.
+     * Whether ClientQuery answers this command with just the {@code error id=...} acknowledgement line instead of a separate data
+     * line.
      */
-    default boolean send(@NonNull TeamSpeakClient teamSpeakClient) {
-        TeamSpeakConnection connection = teamSpeakClient.getConnection();
-        if (connection == null) {
-            return false;
-        }
+    default boolean respondsViaErrorLine() {
+        return false;
+    }
 
-        boolean written = connection.write(commandLine());
-        if (written) {
-            teamSpeakClient.setPendingCommand(this);
-        }
-
-        return written;
+    /**
+     * Enqueues this command on {@code teamSpeakClient} and returns a future for its parsed response. The future completes with
+     * {@code null} if the command couldn't be sent at all or if ClientQuery reported a failure for it.
+     */
+    default @NonNull CompletableFuture<R> send(@NonNull TeamSpeakClient teamSpeakClient) {
+        return teamSpeakClient.enqueue(this).thenApply(responseLine -> responseLine == null ? null : parseResponse(responseLine));
     }
 
     static @NonNull Map<String, String> parseEntry(@NonNull String entry) {

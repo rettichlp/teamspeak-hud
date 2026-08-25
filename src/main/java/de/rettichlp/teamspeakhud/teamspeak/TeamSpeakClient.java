@@ -144,7 +144,7 @@ public class TeamSpeakClient {
                 return;
             }
 
-            new AuthQuery(apiKey).send(this);
+            new AuthQuery(apiKey).send(this).thenAccept(this::onAuthQuery);
 
             // blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine()
             newConnection.readLoop();
@@ -179,7 +179,7 @@ public class TeamSpeakClient {
      * Re-resolves our own client/channel via {@code whoami}.
      */
     public void refreshIdentity() {
-        new WhoAmIQuery().send(this);
+        new WhoAmIQuery().send(this).thenAccept(this::onWhoAmI);
     }
 
     private String resolveApiKey() {
