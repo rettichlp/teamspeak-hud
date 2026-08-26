@@ -1,22 +1,20 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
-import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 
 /**
  * {@code auth apikey=...}: authenticates this ClientQuery connection.
  */
-public record AuthQuery(String apiKey) implements TeamSpeakCommand<Boolean> {
+public record AuthQuery(String apiKey) implements TeamSpeakCommand<Void> {
 
     @Override
     public @NonNull String commandLine() {
         return "auth apikey=" + this.apiKey;
     }
 
-    @Contract(pure = true)
     @Override
-    public @NonNull Boolean parseResponse(@NonNull String responseLine) {
-        return responseLine.startsWith("error id=0");
+    public Void parseResponse(@NonNull String dataLine) {
+        throw new UnsupportedOperationException("auth never sends a separate data line");
     }
 
     /**

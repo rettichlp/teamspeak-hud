@@ -2,6 +2,7 @@ package de.rettichlp.teamspeakhud.teamspeak.command;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -11,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
  * One ClientQuery command: the exact command line it sends, how to write itself to the wire, and how to parse whatever data line it
  * gets back.
  */
-public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
+public sealed interface TeamSpeakCommand<T> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
 
     char BELL = 0x0007;
 
@@ -23,24 +24,26 @@ public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, Chan
     @NonNull String commandLine();
 
     /**
-     * Maps the raw data line ClientQuery sent back for this request into {@code R}.
+     * Maps the data line ClientQuery sent back for this request into {@code T}.
      */
-    R parseResponse(@NonNull String responseLine);
+    T parseResponse(@NonNull String dataLine);
 
     /**
-     * Whether ClientQuery answers this command with just the {@code error id=...} acknowledgement line instead of a separate data
-     * line.
+     * Folds the trailing {@code error id=...} acknowledgement line together with whatever {@code data} produced for this request (or
+     * {@code null} if no data line arrived) into this command's final {@link Response}.
+     *
+     * @see #parseResponse(String)
      */
-    default boolean respondsViaErrorLine() {
-        return false;
+    default @NonNull Response<T> buildResponse(@NonNull String errorLine, @Nullable T data) {
+        return Response.parse(errorLine, data);
     }
 
     /**
-     * Enqueues this command on {@code teamSpeakClient} and returns a future for its parsed response. The future completes with
-     * {@code null} if the command couldn't be sent at all or if ClientQuery reported a failure for it.
+     * Enqueues this command on {@code teamSpeakClient} and returns a future for its {@link Response}. The future completes with a
+     * failed, {@link Response#failedToSend()} response if the command couldn't be sent at all.
      */
-    default @NonNull CompletableFuture<R> send(@NonNull TeamSpeakClient teamSpeakClient) {
-        return teamSpeakClient.enqueue(this).thenApply(responseLine -> responseLine == null ? null : parseResponse(responseLine));
+    default @NonNull CompletableFuture<Response<T>> send(@NonNull TeamSpeakClient teamSpeakClient) {
+        return teamSpeakClient.getRequestQueue().enqueue(this);
     }
 
     static @NonNull Map<String, String> parseEntry(@NonNull String entry) {

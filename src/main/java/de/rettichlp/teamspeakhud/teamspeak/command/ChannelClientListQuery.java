@@ -22,10 +22,10 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
     }
 
     @Override
-    public @NonNull List<Client> parseResponse(@NonNull String responseLine) {
+    public @NonNull List<Client> parseResponse(@NonNull String dataLine) {
         List<Client> entries = new ArrayList<>();
 
-        for (String rawEntry : splitEntries(responseLine)) {
+        for (String rawEntry : splitEntries(dataLine)) {
             Map<String, String> values = parseEntry(rawEntry);
             String clid = values.get("clid");
             if (clid == null) {
