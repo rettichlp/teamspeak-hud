@@ -8,8 +8,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public sealed interface TeamSpeakCommand<T> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
-
+public sealed interface TeamSpeakCommand<T> permits AuthQuery, ChannelClientListQuery, ChannelInfoQuery, ChannelListQuery,
+                                                    ClientDescriptionQuery, ClientListQuery, ClientMoveQuery, WhoAmIQuery {
     char BELL = 0x0007;
 
     char VERTICAL_TAB = 0x000B;
