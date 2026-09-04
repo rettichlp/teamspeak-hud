@@ -24,8 +24,8 @@ public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<Channe
     }
 
     @Override
-    public @NonNull Channel parseResponse(@NonNull String responseLine) {
-        for (String rawEntry : splitEntries(responseLine)) {
+    public @NonNull Channel parseResponse(@NonNull String dataLine) {
+        for (String rawEntry : splitEntries(dataLine)) {
             Map<String, String> values = parseEntry(rawEntry);
             String cid = values.get("cid");
             if (cid == null || parseInt(cid) != this.channelId) {

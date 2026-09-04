@@ -1,6 +1,5 @@
 package de.rettichlp.teamspeakhud.teamspeak;
 
-import de.rettichlp.teamspeakhud.teamspeak.command.WhoAmIQuery;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.client.Minecraft;
 
@@ -50,14 +49,7 @@ public class Heartbeat {
                 return; // superseded by a stop()/reconnect() since this beat was scheduled
             }
 
-            if (this.client.getPendingCommand() != null) {
-                return; // a request is already in flight, skip this beat rather than clobbering it
-            }
-
-            if (!new WhoAmIQuery().send(this.client)) {
-                this.client.setPendingCommand(null);
-                this.client.onConnectionLost(this.client.getGeneration().get());
-            }
+            this.client.refreshIdentity();
         });
     }
 }

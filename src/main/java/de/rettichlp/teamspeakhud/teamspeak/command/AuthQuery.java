@@ -1,22 +1,24 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
-import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 
 /**
  * {@code auth apikey=...}: authenticates this ClientQuery connection.
  */
-public record AuthQuery(String apiKey) implements TeamSpeakCommand<Boolean> {
+public record AuthQuery(String apiKey) implements TeamSpeakCommand<Void> {
 
     @Override
     public @NonNull String commandLine() {
         return "auth apikey=" + this.apiKey;
     }
 
-    @Contract(pure = true)
     @Override
-    public @NonNull Boolean parseResponse(@NonNull String responseLine) {
-        return responseLine.startsWith("error id=0");
+    public @Nullable Void parseResponse(@NonNull String dataLine) {
+        LOGGER.warn("Unexpected data line for auth request: {}", dataLine);
+        return null;
     }
 
     /**

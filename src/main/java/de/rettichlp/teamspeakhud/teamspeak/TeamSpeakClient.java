@@ -3,7 +3,7 @@ package de.rettichlp.teamspeakhud.teamspeak;
 import de.rettichlp.teamspeakhud.teamspeak.command.AuthQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ChannelInfoQuery;
-import de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand;
+import de.rettichlp.teamspeakhud.teamspeak.command.Response;
 import de.rettichlp.teamspeakhud.teamspeak.command.WhoAmIQuery;
 import de.rettichlp.teamspeakhud.teamspeak.model.Channel;
 import de.rettichlp.teamspeakhud.teamspeak.model.Client;
@@ -13,10 +13,8 @@ import de.rettichlp.teamspeakhud.teamspeak.notify.MembershipChangedNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.TeamSpeakNotify;
 import de.rettichlp.teamspeakhud.teamspeak.notify.TextMessageNotify;
 import lombok.Getter;
-import lombok.Setter;
 import net.minecraft.client.Minecraft;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,12 +57,8 @@ public class TeamSpeakClient {
     private final ScheduledExecutorService scheduler = newSingleThreadScheduledExecutor(this::newDaemonThread);
     private final Heartbeat heartbeat = new Heartbeat(this);
     private final Reconnector reconnector = new Reconnector(this);
+    private final RequestQueue requestQueue = new RequestQueue(this);
 
-    /**
-     * The {@link TeamSpeakCommand} whose response we're currently waiting on, or {@code null} if none is in flight.
-     */
-    @Setter
-    private volatile TeamSpeakCommand<?> pendingCommand;
     private volatile TeamSpeakConnection connection;
     private volatile boolean stopped = true;
     private volatile boolean connected;
@@ -144,7 +138,7 @@ public class TeamSpeakClient {
                 return;
             }
 
-            new AuthQuery(apiKey).send(this);
+            new AuthQuery(apiKey).send(this).thenAccept(this::onAuthQuery);
 
             // blocks this reader thread until the socket closes; every line it reads, meanwhile, is handed off to handleLine()
             newConnection.readLoop();
@@ -179,7 +173,7 @@ public class TeamSpeakClient {
      * Re-resolves our own client/channel via {@code whoami}.
      */
     public void refreshIdentity() {
-        new WhoAmIQuery().send(this);
+        new WhoAmIQuery().send(this).thenAccept(this::onWhoAmI);
     }
 
     private String resolveApiKey() {
@@ -193,7 +187,7 @@ public class TeamSpeakClient {
 
     private void reset() {
         this.ownClientId = 0;
-        this.pendingCommand = null;
+        this.requestQueue.reset();
     }
 
     private void handleLine(String line, int lineGeneration) {
@@ -206,22 +200,12 @@ public class TeamSpeakClient {
             return;
         }
 
-        // handle error / auth acknowledge
+        // every command ends with an "error id=..." acknowledgement line, so this is always the point where the current in-flight
+        // request is actually finished and the next one may be written
         if (line.startsWith("error id=")) {
-            boolean failure = !line.startsWith("error id=0");
-
-            if (this.pendingCommand instanceof AuthQuery authQuery) {
-                this.pendingCommand = null;
-                boolean authSuccess = authQuery.parseResponse(line);
-                if (authSuccess) {
-                    LOGGER.info("Connected to the TeamSpeak client");
-                } else {
-                    LOGGER.warn("TeamSpeak authentication failed: {}", line);
-                }
-                onAuthQuery(authSuccess);
-            } else if (failure) {
+            Response<?> response = this.requestQueue.completeInFlight(line);
+            if (response != null && !response.success()) {
                 LOGGER.warn("TeamSpeak ClientQuery request failed: {}", line);
-                this.pendingCommand = null;
             }
 
             return;
@@ -235,62 +219,13 @@ public class TeamSpeakClient {
             }
         }
 
-        // handle commands
-        if (this.pendingCommand instanceof AuthQuery) {
-            return;
-        }
-
-        if (this.pendingCommand instanceof TeamSpeakCommand<?> command) {
-            this.pendingCommand = null;
-            switch (command) {
-                case AuthQuery ignored -> {
-                }
-                case WhoAmIQuery whoAmIQuery -> onWhoAmI(whoAmIQuery.parseResponse(line));
-                case ChannelInfoQuery channelInfoQuery -> {
-                    Channel parsedResponse = channelInfoQuery.parseResponse(line);
-                    this.channel.setId(parsedResponse.getId());
-                    this.channel.setName(parsedResponse.getName());
-                    this.channel.setPasswordProtected(parsedResponse.isPasswordProtected());
-                    this.channel.setSubscribed(parsedResponse.isSubscribed());
-                    this.channel.setMaxClients(parsedResponse.getMaxClients());
-                    // request channel members
-                    new ChannelClientListQuery(this.channel.getId()).send(this);
-                }
-                case ChannelClientListQuery channelClientListQuery -> {
-                    Collection<Client> currentClients = channelClientListQuery.parseResponse(line);
-                    List<Client> previousClients = this.channel.getClients();
-                    Map<Integer, Client> previousClientsById = previousClients.stream().collect(toMap(Client::getClientId, identity()));
-
-                    // populating a previously empty list means this is the first list for a channel we just entered/connected to:
-                    // members were already there, not people who "just joined", so they shouldn't be highlighted
-                    boolean isInitialPopulation = previousClients.isEmpty();
-                    long now = currentTimeMillis();
-
-                    Collection<Client> merged = new ArrayList<>(currentClients.size());
-                    for (Client reportedClient : currentClients) {
-                        Client previousClient = previousClientsById.remove(reportedClient.getClientId());
-                        boolean freshlyJoined = previousClient == null || previousClient.hasLeavingHighlight();
-                        reportedClient.setJoinedAt(freshlyJoined ? (isInitialPopulation ? 0L : now) : previousClient.getJoinedAt());
-                        merged.add(reportedClient);
-                    }
-
-                    for (Client leftClient : previousClientsById.values()) {
-                        if (!leftClient.hasLeavingHighlight()) {
-                            leftClient.setLeftAt(now);
-                        }
-
-                        merged.add(leftClient);
-                    }
-
-                    previousClients.clear();
-                    previousClients.addAll(merged);
-                }
-            }
-        }
+        // a data line for the current in-flight request: hand it straight to the command to parse and stash the result
+        this.requestQueue.onDataLine(line);
     }
 
-    private void onAuthQuery(@NonNull Boolean success) {
-        if (success) {
+    private void onAuthQuery(@NonNull Response<Void> response) {
+        if (response.success()) {
+            LOGGER.info("Connected to the TeamSpeak client");
             this.connected = true;
 
             TeamSpeakConnection currentConnection = this.connection;
@@ -310,21 +245,70 @@ public class TeamSpeakClient {
         }
     }
 
-    private void onWhoAmI(WhoAmIQuery.@Nullable Response response) {
-        if (response == null) {
+    private void onWhoAmI(@NonNull Response<WhoAmIQuery.Identity> response) {
+        WhoAmIQuery.Identity identity = response.data();
+        if (!response.success() || identity == null) {
             return;
         }
 
-        this.ownClientId = response.clientId();
+        this.ownClientId = identity.clientId();
 
-        int newChannelId = response.channelId();
+        int newChannelId = identity.channelId();
         if (newChannelId != this.channel.getId()) {
             this.channel.getClients().clear();
         }
 
         this.channel.setId(newChannelId);
-        // request channel info
-        new ChannelInfoQuery(this.channel.getId()).send(this);
+        new ChannelInfoQuery(this.channel.getId()).send(this).thenAccept(this::onChannelInfo);
+    }
+
+    private void onChannelInfo(@NonNull Response<Channel> response) {
+        Channel parsedResponse = response.data();
+        if (!response.success() || parsedResponse == null) {
+            return;
+        }
+
+        this.channel.setId(parsedResponse.getId());
+        this.channel.setName(parsedResponse.getName());
+        this.channel.setPasswordProtected(parsedResponse.isPasswordProtected());
+        this.channel.setSubscribed(parsedResponse.isSubscribed());
+        this.channel.setMaxClients(parsedResponse.getMaxClients());
+
+        new ChannelClientListQuery(this.channel.getId()).send(this).thenAccept(this::onChannelClientList);
+    }
+
+    private void onChannelClientList(@NonNull Response<List<Client>> response) {
+        List<Client> currentClients = response.data();
+        if (!response.success() || currentClients == null) {
+            return;
+        }
+
+        List<Client> previousClients = this.channel.getClients();
+        Map<Integer, Client> previousClientsById = previousClients.stream().collect(toMap(Client::getClientId, identity()));
+
+        // populating a previously empty list means this is the first list for a channel we just entered/connected to: members were
+        // already there, not people who "just joined", so they shouldn't be highlighted
+        boolean isInitialPopulation = previousClients.isEmpty();
+        long now = currentTimeMillis();
+
+        Collection<Client> merged = new ArrayList<>(currentClients.size());
+        for (Client reportedClient : currentClients) {
+            Client previousClient = previousClientsById.remove(reportedClient.getClientId());
+            boolean freshlyJoined = previousClient == null || previousClient.hasLeavingHighlight();
+            reportedClient.setJoinedAt(freshlyJoined ? (isInitialPopulation ? 0L : now) : previousClient.getJoinedAt());
+            merged.add(reportedClient);
+        }
+
+        for (Client leftClient : previousClientsById.values()) {
+            if (!leftClient.hasLeavingHighlight()) {
+                leftClient.setLeftAt(now);
+            }
+
+            merged.add(leftClient);
+        }
+
+        previousClients.clear();
+        previousClients.addAll(merged);
     }
 
     private void submit(@NonNull Executor executor, Runnable runnable) {

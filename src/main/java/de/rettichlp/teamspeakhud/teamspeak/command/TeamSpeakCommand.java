@@ -1,48 +1,29 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
-import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakConnection;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
-/**
- * One ClientQuery command: the exact command line it sends, how to write itself to the wire, and how to parse whatever data line it
- * gets back.
- */
-public sealed interface TeamSpeakCommand<R> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
+public sealed interface TeamSpeakCommand<T> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
 
     char BELL = 0x0007;
 
     char VERTICAL_TAB = 0x000B;
 
-    /**
-     * The raw ClientQuery command line to send.
-     */
     @NonNull String commandLine();
 
-    /**
-     * Maps the raw data line ClientQuery sent back for this request into {@code R}.
-     */
-    R parseResponse(@NonNull String responseLine);
+    T parseResponse(@NonNull String dataLine);
 
-    /**
-     * Marks this command as the response we're now waiting for, then writes {@link #commandLine()} to {@code connection}. Returns
-     * whether the writing succeeded.
-     */
-    default boolean send(@NonNull TeamSpeakClient teamSpeakClient) {
-        TeamSpeakConnection connection = teamSpeakClient.getConnection();
-        if (connection == null) {
-            return false;
-        }
+    default @NonNull Response<T> buildResponse(@NonNull String errorLine, @Nullable T data) {
+        return Response.parse(errorLine, data);
+    }
 
-        boolean written = connection.write(commandLine());
-        if (written) {
-            teamSpeakClient.setPendingCommand(this);
-        }
-
-        return written;
+    default @NonNull CompletableFuture<Response<T>> send(@NonNull TeamSpeakClient teamSpeakClient) {
+        return teamSpeakClient.getRequestQueue().enqueue(this);
     }
 
     static @NonNull Map<String, String> parseEntry(@NonNull String entry) {
