@@ -18,7 +18,7 @@ pluginManagement {
 }
 
 plugins {
-    id("dev.kikugie.stonecutter") version "0.9.7"
+    id("dev.kikugie.stonecutter") version "0.9.8"
     // Applies the correct Loom variant per Minecraft version automatically
     id("dev.kikugie.loom-back-compat") version "0.4.2"
     // Needed for Gradle to reliably resolve the toolchain JDKs used across versions (Java 21 for older, Java 25 for 26.1+)
