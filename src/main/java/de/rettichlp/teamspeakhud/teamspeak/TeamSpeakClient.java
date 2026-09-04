@@ -238,6 +238,8 @@ public class TeamSpeakClient {
             this.heartbeat.start();
             refreshIdentity();
         } else {
+            LOGGER.warn("TeamSpeak authentication failed{}", response.msg().isBlank() ? "" : ": " + response.msg());
+
             TeamSpeakConnection currentConnection = this.connection;
             if (currentConnection != null) {
                 currentConnection.close();
