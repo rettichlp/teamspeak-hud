@@ -1,6 +1,9 @@
 package de.rettichlp.teamspeakhud.teamspeak.command;
 
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 
 /**
  * {@code auth apikey=...}: authenticates this ClientQuery connection.
@@ -13,8 +16,9 @@ public record AuthQuery(String apiKey) implements TeamSpeakCommand<Void> {
     }
 
     @Override
-    public Void parseResponse(@NonNull String dataLine) {
-        throw new UnsupportedOperationException("auth never sends a separate data line");
+    public @Nullable Void parseResponse(@NonNull String dataLine) {
+        LOGGER.warn("Unexpected data line for auth request: {}", dataLine);
+        return null;
     }
 
     /**

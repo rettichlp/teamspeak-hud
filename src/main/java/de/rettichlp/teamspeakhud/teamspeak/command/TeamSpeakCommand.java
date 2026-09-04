@@ -8,40 +8,20 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * One ClientQuery command: the exact command line it sends, how to write itself to the wire, and how to parse whatever data line it
- * gets back.
- */
 public sealed interface TeamSpeakCommand<T> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
 
     char BELL = 0x0007;
 
     char VERTICAL_TAB = 0x000B;
 
-    /**
-     * The raw ClientQuery command line to send.
-     */
     @NonNull String commandLine();
 
-    /**
-     * Maps the data line ClientQuery sent back for this request into {@code T}.
-     */
     T parseResponse(@NonNull String dataLine);
 
-    /**
-     * Folds the trailing {@code error id=...} acknowledgement line together with whatever {@code data} produced for this request (or
-     * {@code null} if no data line arrived) into this command's final {@link Response}.
-     *
-     * @see #parseResponse(String)
-     */
     default @NonNull Response<T> buildResponse(@NonNull String errorLine, @Nullable T data) {
         return Response.parse(errorLine, data);
     }
 
-    /**
-     * Enqueues this command on {@code teamSpeakClient} and returns a future for its {@link Response}. The future completes with a
-     * failed, {@link Response#failedToSend()} response if the command couldn't be sent at all.
-     */
     default @NonNull CompletableFuture<Response<T>> send(@NonNull TeamSpeakClient teamSpeakClient) {
         return teamSpeakClient.getRequestQueue().enqueue(this);
     }
