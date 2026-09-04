@@ -1,4 +1,5 @@
 {
+  "tsh.error.title": "TeamSpeak error",
   "tsh.more_messages": "+%s more",
   "tsh.notification.message.channel.title": "%s in %s",
   "tsh.options.enabled": "Enabled",

@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.LOGGER;
 
 /**
- * {@code clientmove clid=&lt;clientId&gt; cid=&lt;channelId&gt;}: moves a client.
+ * {@code clientmove clid=<clientId> cid=<channelId>}: moves a client.
  */
 public record ClientMoveQuery(int clientId, int channelId) implements TeamSpeakCommand<Void> {
 
