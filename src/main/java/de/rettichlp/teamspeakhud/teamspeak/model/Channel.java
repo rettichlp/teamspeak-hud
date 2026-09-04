@@ -19,8 +19,8 @@ import static java.util.Locale.ROOT;
 public class Channel {
 
     /**
-     * Used when no channel list entry matches {@link #id} at all (e.g. we somehow lost {@code -flags}/{@code -limits}
-     * support), so a channel that no longer resolves doesn't keep showing stale data from a previous refresh.
+     * Used when no channel list entry matches {@link #id} at all (e.g. we somehow lost {@code -flags}/{@code -limits} support), so a
+     * channel that no longer resolves doesn't keep showing stale data from a previous refresh.
      */
     public static final Channel UNKNOWN = new Channel();
 
@@ -32,11 +32,6 @@ public class Channel {
     private boolean subscribed = true;
     private int maxClients = -1; // -1 means unlimited
 
-    /**
-     * Whether the channel is at its client limit, mirroring the TeamSpeak client's own red channel icon. Members who already left but
-     * are still lingering in {@link #clients} for the leave highlight ({@link Client#hasLeavingHighlight()}) don't count towards the
-     * limit.
-     */
     public boolean isFull() {
         if (this.maxClients < 0) {
             return false;
@@ -57,9 +52,6 @@ public class Channel {
         return sorted;
     }
 
-    /**
-     * The client with {@code clientId}, or {@code null} if no such client is currently in this channel.
-     */
     public @Nullable Client getClient(int clientId) {
         return this.clients.stream().filter(client -> client.getClientId() == clientId).findFirst().orElse(null);
     }

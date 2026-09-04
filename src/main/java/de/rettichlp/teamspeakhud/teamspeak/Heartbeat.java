@@ -10,7 +10,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Periodically sends a {@code whoami} over an established {@link TeamSpeakClient} connection, both to keep the ClientQuery connection
- * alive and to detect a dead one. Schedules itself on the client's scheduler and manages its own lifecycle.
+ * alive and to detect a dead one.
  */
 @RequiredArgsConstructor
 public class Heartbeat {

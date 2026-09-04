@@ -11,6 +11,9 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 
+import static de.rettichlp.teamspeakhud.teamspeak.command.Response.failedToSend;
+import static de.rettichlp.teamspeakhud.teamspeak.command.Response.parseResponse;
+
 @RequiredArgsConstructor
 public class RequestQueue {
 
@@ -18,13 +21,14 @@ public class RequestQueue {
 
     private final Deque<QueuedRequest<?>> queue = new ArrayDeque<>();
 
+    @Getter
     private volatile QueuedRequest<?> inFlight;
 
     public @NonNull <T> CompletableFuture<Response<T>> enqueue(@NonNull TeamSpeakCommand<T> command) {
         CompletableFuture<Response<T>> responseFuture = new CompletableFuture<>();
 
         if (this.client.getConnection() == null) {
-            responseFuture.complete(Response.failedToSend());
+            responseFuture.complete(failedToSend());
             return responseFuture;
         }
 
@@ -36,24 +40,18 @@ public class RequestQueue {
         return responseFuture;
     }
 
-    void onDataLine(@NonNull String dataLine) {
-        QueuedRequest<?> current = this.inFlight;
-        if (current != null) {
-            current.onDataLine(dataLine);
-        }
-    }
-
-    @Nullable Response<?> completeInFlight(@NonNull String errorLine) {
+    public @Nullable Response<?> completeInFlight(@NonNull String errorLine) {
         QueuedRequest<?> current = this.inFlight;
         if (current == null) {
             return null;
         }
 
-        advanceQueue();
+        this.inFlight = null;
+        promoteNext();
         return current.complete(errorLine);
     }
 
-    void reset() {
+    public void reset() {
         synchronized (this.queue) {
             this.inFlight = null;
             this.queue.clear();
@@ -79,31 +77,26 @@ public class RequestQueue {
         boolean written = currentConnection != null && currentConnection.write(next.getCommand().commandLine());
         if (!written) {
             this.inFlight = null;
-            next.getResponseFuture().complete(Response.failedToSend());
+            next.getResponseFuture().complete(failedToSend());
             promoteNext();
         }
     }
 
-    private void advanceQueue() {
-        this.inFlight = null;
-        promoteNext();
-    }
-
     @Getter
     @RequiredArgsConstructor
-    private static final class QueuedRequest<T> {
+    static final class QueuedRequest<T> {
 
         private final TeamSpeakCommand<T> command;
         private final CompletableFuture<Response<T>> responseFuture;
 
         private T data;
 
-        private void onDataLine(@NonNull String dataLine) {
+        public void enrichWithData(@NonNull String dataLine) {
             this.data = this.command.parseResponse(dataLine);
         }
 
         private @NonNull Response<T> complete(@NonNull String errorLine) {
-            Response<T> response = this.command.buildResponse(errorLine, this.data);
+            Response<T> response = parseResponse(errorLine, this.data);
             this.responseFuture.complete(response);
             return response;
         }

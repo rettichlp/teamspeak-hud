@@ -6,9 +6,7 @@ import org.jspecify.annotations.NonNull;
 import java.util.Set;
 
 /**
- * {@code notifycliententerview}/{@code notifyclientleftview}/{@code notifyclientmoved}: who's in the channel changed. ClientQuery
- * doesn't tell us anything more specific than "something changed", so this just triggers a full {@code whoami}-driven refresh rather
- * than trying to patch the member list incrementally from the event line itself.
+ * {@code notifycliententerview}/{@code notifyclientleftview}/{@code notifyclientmoved}: who's in the channel changed.
  */
 public record MembershipChangedNotify() implements TeamSpeakNotify {
 

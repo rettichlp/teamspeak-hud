@@ -16,10 +16,7 @@ public record Response<T>(boolean success, int id, @NonNull String msg, @Nullabl
         return new Response<>(false, NOT_SENT_ID, "", null);
     }
 
-    /**
-     * Parses the trailing {@code error id=...} acknowledgement line and folds {@code data} into it.
-     */
-    public static <T> @NonNull Response<T> parse(@NonNull String errorLine, @Nullable T data) {
+    public static <T> @NonNull Response<T> parseResponse(@NonNull String errorLine, @Nullable T data) {
         Map<String, String> values = parseEntry(errorLine);
         int id = parseInt(values.getOrDefault("id", "-1"));
         boolean success = id == 0;

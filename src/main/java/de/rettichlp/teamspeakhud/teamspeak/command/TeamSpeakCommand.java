@@ -2,7 +2,6 @@ package de.rettichlp.teamspeakhud.teamspeak.command;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 
 public sealed interface TeamSpeakCommand<T> permits AuthQuery, ChannelClientListQuery, ChannelInfoQuery, ChannelListQuery,
                                                     ClientDescriptionQuery, ClientListQuery, ClientMoveQuery, WhoAmIQuery {
+
     char BELL = 0x0007;
 
     char VERTICAL_TAB = 0x000B;
@@ -17,10 +17,6 @@ public sealed interface TeamSpeakCommand<T> permits AuthQuery, ChannelClientList
     @NonNull String commandLine();
 
     T parseResponse(@NonNull String dataLine);
-
-    default @NonNull Response<T> buildResponse(@NonNull String errorLine, @Nullable T data) {
-        return Response.parse(errorLine, data);
-    }
 
     default @NonNull CompletableFuture<Response<T>> send(@NonNull TeamSpeakClient teamSpeakClient) {
         return teamSpeakClient.getRequestQueue().enqueue(this);

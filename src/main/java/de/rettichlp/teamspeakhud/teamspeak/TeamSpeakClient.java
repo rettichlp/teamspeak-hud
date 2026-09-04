@@ -169,9 +169,6 @@ public class TeamSpeakClient {
         });
     }
 
-    /**
-     * Re-resolves our own client/channel via {@code whoami}.
-     */
     public void refreshIdentity() {
         new WhoAmIQuery().send(this).thenAccept(this::onWhoAmI);
     }
@@ -219,8 +216,11 @@ public class TeamSpeakClient {
             }
         }
 
-        // a data line for the current in-flight request: hand it straight to the command to parse and stash the result
-        this.requestQueue.onDataLine(line);
+        // a data line for the current request
+        RequestQueue.QueuedRequest<?> current = this.requestQueue.getInFlight();
+        if (current != null) {
+            current.enrichWithData(line);
+        }
     }
 
     private void onAuthQuery(@NonNull Response<Void> response) {

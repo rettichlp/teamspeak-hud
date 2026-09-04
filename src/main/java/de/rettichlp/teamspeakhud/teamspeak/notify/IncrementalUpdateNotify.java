@@ -11,10 +11,7 @@ import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.parse
 import static java.lang.Integer.parseInt;
 
 /**
- * {@code notifytalkstatuschange}/{@code notifyclientupdated}: one member's status changed. Only the field(s) that actually changed are
- * present on the line, so every field below is guarded by its own {@code containsKey} rather than assuming the whole set is there -
- * unlike a full {@link de.rettichlp.teamspeakhud.teamspeak.command.ChannelClientListQuery} refresh, where every field is always
- * present.
+ * {@code notifytalkstatuschange}/{@code notifyclientupdated}: one member's status changed.
  */
 public record IncrementalUpdateNotify() implements TeamSpeakNotify {
 

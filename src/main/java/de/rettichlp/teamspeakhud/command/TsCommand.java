@@ -12,12 +12,10 @@ import de.rettichlp.teamspeakhud.teamspeak.command.ChannelListQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ClientDescriptionQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ClientListQuery;
 import de.rettichlp.teamspeakhud.teamspeak.command.ClientMoveQuery;
-import de.rettichlp.teamspeakhud.teamspeak.command.Response;
 import de.rettichlp.teamspeakhud.teamspeak.model.Channel;
 import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -38,22 +36,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static net.minecraft.network.chat.Component.translatable;
 
 public class TsCommand {
-
-    /**
-     * Pins Brigadier's generic source type to {@link FabricClientCommandSource}, the same trick Fabric's own client-command builder
-     * helpers use, so target-type inference flows through the whole {@code .then(...)} chain below. Written locally instead of
-     * imported (do not replace with a static import of {@code net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal}/
-     * {@code .argument}, or of the generic {@code LiteralArgumentBuilder.literal}/{@code RequiredArgumentBuilder.argument} — both
-     * break the build) because the Fabric class that provides a pinned version was renamed ({@code ClientCommandManager} to
-     * {@code ClientCommands}) between the Minecraft versions this mod builds for, and only one of the two names exists per version.
-     */
-    private static @NonNull LiteralArgumentBuilder<FabricClientCommandSource> literal(@NonNull String name) {
-        return LiteralArgumentBuilder.literal(name);
-    }
-
-    private static <T> @NonNull RequiredArgumentBuilder<FabricClientCommandSource, T> argument(@NonNull String name, @NonNull ArgumentType<T> type) {
-        return RequiredArgumentBuilder.argument(name, type);
-    }
 
     public static void register(@NonNull CommandDispatcher<FabricClientCommandSource> dispatcher) {
         dispatcher.register(literal("ts")
@@ -117,37 +99,46 @@ public class TsCommand {
                                         })))));
     }
 
-    private static void move(@NonNull TeamSpeakClient client, int clientId, int channelId, @NonNull FabricClientCommandSource source, @NonNull String feedbackKey, Object @NonNull ... messageArgs) {
-        new ClientMoveQuery(clientId, channelId).send(client).thenAccept(response -> {
-            if (response.success()) {
-                source.sendFeedback(translatable(feedbackKey + ".success", messageArgs));
-            } else {
-                sendMoveFailure(source, feedbackKey + ".failed", response, messageArgs);
-            }
-        });
+    // necessary for multi-version support
+    private static @NonNull LiteralArgumentBuilder<FabricClientCommandSource> literal(@NonNull String name) {
+        return LiteralArgumentBuilder.literal(name);
     }
 
-    private static @NonNull CompletableFuture<Suggestions> suggestChannels(@NonNull CommandContext<FabricClientCommandSource> context, @NonNull SuggestionsBuilder builder) {
+    // necessary for multi-version support
+    private static <T> @NonNull RequiredArgumentBuilder<FabricClientCommandSource, T> argument(@NonNull String name,
+                                                                                               @NonNull ArgumentType<T> type) {
+        return RequiredArgumentBuilder.argument(name, type);
+    }
+
+    private static @NonNull CompletableFuture<Suggestions> suggestChannels(@NonNull CommandContext<FabricClientCommandSource> context,
+                                                                           @NonNull SuggestionsBuilder builder) {
         TeamSpeakClient client = teamSpeakClient;
         if (!client.isConnected()) {
             return builder.buildFuture();
         }
 
         return new ChannelListQuery().send(client)
-                .thenApply(response -> buildSuggestions(builder, response.data() == null ? List.of() : response.data(), Channel::getName));
+                .thenApply(response -> buildSuggestions(builder, response.data() == null
+                        ? List.of()
+                        : response.data(), Channel::getName));
     }
 
-    private static @NonNull CompletableFuture<Suggestions> suggestClients(@NonNull CommandContext<FabricClientCommandSource> context, @NonNull SuggestionsBuilder builder) {
+    private static @NonNull CompletableFuture<Suggestions> suggestClients(@NonNull CommandContext<FabricClientCommandSource> context,
+                                                                          @NonNull SuggestionsBuilder builder) {
         TeamSpeakClient client = teamSpeakClient;
         if (!client.isConnected()) {
             return builder.buildFuture();
         }
 
         return new ClientListQuery().send(client)
-                .thenApply(response -> buildSuggestions(builder, response.data() == null ? List.of() : response.data(), Client::getNickname));
+                .thenApply(response -> buildSuggestions(builder, response.data() == null
+                        ? List.of()
+                        : response.data(), cl -> "\"" + cl.getNickname() + "\""));
     }
 
-    private static <T> @NonNull Suggestions buildSuggestions(@NonNull SuggestionsBuilder builder, @NonNull List<T> items, @NonNull Function<T, String> nameExtractor) {
+    private static <T> @NonNull Suggestions buildSuggestions(@NonNull SuggestionsBuilder builder,
+                                                             @NonNull Iterable<T> items,
+                                                             @NonNull Function<T, String> nameExtractor) {
         String remaining = builder.getRemainingLowerCase();
 
         for (T item : items) {
@@ -164,18 +155,6 @@ public class TsCommand {
         }
 
         return builder.build();
-    }
-
-    private static void sendMoveFailure(@NonNull FabricClientCommandSource source, @NonNull String baseKey, @Nullable Response<?> response, Object @NonNull ... args) {
-        String reason = response != null ? response.msg() : null;
-        if (reason == null || reason.isBlank()) {
-            source.sendError(translatable(baseKey, args));
-            return;
-        }
-
-        Object[] argsWithReason = Arrays.copyOf(args, args.length + 1);
-        argsWithReason[args.length] = reason;
-        source.sendError(translatable(baseKey + "_reason", argsWithReason));
     }
 
     private static @NonNull CompletableFuture<Channel> resolveChannel(@NonNull TeamSpeakClient client, @NonNull String channelName) {
@@ -197,7 +176,9 @@ public class TsCommand {
         });
     }
 
-    private static @NonNull CompletableFuture<Client> resolveClientByDescription(@NonNull TeamSpeakClient client, @NonNull Iterator<Client> remaining, @NonNull String target) {
+    private static @NonNull CompletableFuture<Client> resolveClientByDescription(@NonNull TeamSpeakClient client,
+                                                                                 @NonNull Iterator<Client> remaining,
+                                                                                 @NonNull String target) {
         if (!remaining.hasNext()) {
             return completedFuture(null);
         }
@@ -213,7 +194,9 @@ public class TsCommand {
         });
     }
 
-    private static <T> @NonNull Optional<T> findBestMatch(@NonNull Collection<T> items, @NonNull String name, @NonNull Function<T, String> nameExtractor) {
+    private static <T> @NonNull Optional<T> findBestMatch(@NonNull Collection<T> items,
+                                                          @NonNull String name,
+                                                          @NonNull Function<T, String> nameExtractor) {
         Optional<T> exact = items.stream().filter(item -> nameExtractor.apply(item).equalsIgnoreCase(name)).findFirst();
         if (exact.isPresent()) {
             return exact;
@@ -221,5 +204,29 @@ public class TsCommand {
 
         String needle = name.toLowerCase(ROOT);
         return items.stream().filter(item -> nameExtractor.apply(item).toLowerCase(ROOT).contains(needle)).findFirst();
+    }
+
+    private static void move(@NonNull TeamSpeakClient client,
+                             int clientId,
+                             int channelId,
+                             @NonNull FabricClientCommandSource source,
+                             @NonNull String feedbackKey,
+                             Object @NonNull ... messageArgs) {
+        new ClientMoveQuery(clientId, channelId).send(client).thenAccept(response -> {
+            if (response.success()) {
+                source.sendFeedback(translatable(feedbackKey + ".success", messageArgs));
+            } else {
+                String reason = response.msg();
+                String baseKey = feedbackKey + ".failed";
+                if (reason.isBlank()) {
+                    source.sendError(translatable(baseKey, messageArgs));
+                    return;
+                }
+
+                Object[] argsWithReason = Arrays.copyOf(messageArgs, messageArgs.length + 1);
+                argsWithReason[messageArgs.length] = reason;
+                source.sendError(translatable(baseKey + "_reason", argsWithReason));
+            }
+        });
     }
 }

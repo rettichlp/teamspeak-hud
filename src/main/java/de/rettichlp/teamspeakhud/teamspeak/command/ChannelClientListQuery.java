@@ -12,7 +12,7 @@ import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.split
 import static java.lang.Integer.parseInt;
 
 /**
- * {@code channelclientlist cid=&lt;channelId&gt; -voice -away}: the full member list of one channel.
+ * {@code channelclientlist cid=<channelId> -voice -away}: the full member list of one channel.
  */
 public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<List<Client>> {
 
