@@ -36,8 +36,7 @@ Package root: `de.rettichlp.teamspeakhud`
 This project has no mixins — HUD rendering and command registration hook in via Fabric API callbacks, not ASM injection.
 
 Translation strings live in `src/main/resources/assets/teamspeak-hud/lang/en_us.json`.
-Minecraft/Loader/Fabric API/dependency versions live in `gradle.properties` and `stonecutter.properties.toml` — don't hardcode them
-elsewhere.
+Minecraft/Loader/Fabric API/dependency versions live in `stonecutter.properties.toml` — don't hardcode them elsewhere.
 
 ## Multi-version support
 
