@@ -21,11 +21,8 @@ public record AuthQuery(String apiKey) implements TeamSpeakCommand<Void> {
         return null;
     }
 
-    /**
-     * Overridden so the API key never ends up in a log line or debugger view via the record's default {@code toString()}.
-     */
     @Override
     public @NonNull String toString() {
-        return "AuthQuery[apiKey=<redacted>]";
+        return "AuthQuery[apiKey=<redacted>]"; // hide api key in logs
     }
 }

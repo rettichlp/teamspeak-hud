@@ -12,25 +12,12 @@ import java.util.Set;
 
 import static net.minecraft.network.chat.Component.literal;
 
-/**
- * One ClientQuery notify event: the event name(s) it's registered for via {@code clientnotifyregister}, and how it reacts once such a
- * line arrives unsolicited.
- */
 public sealed interface TeamSpeakNotify permits MembershipChangedNotify, IncrementalUpdateNotify, ClientPokeNotify, TextMessageNotify {
 
-    /**
-     * The ClientQuery event name(s) this reacts to; each is registered separately via {@code clientnotifyregister}.
-     */
     @NonNull Set<String> eventNames();
 
-    /**
-     * Reacts to {@code line}, one of {@link #eventNames()} having already been confirmed to prefix it (see {@link #matches}).
-     */
     void handle(@NonNull String line, @NonNull TeamSpeakClient client);
 
-    /**
-     * Whether {@code line} is this notify event, i.e. one of {@link #eventNames()} is a prefix of it.
-     */
     default boolean matches(@NonNull String line) {
         return eventNames().stream().anyMatch(line::startsWith);
     }

@@ -11,10 +11,7 @@ import static de.rettichlp.teamspeakhud.teamspeak.model.Channel.UNKNOWN;
 import static java.lang.Integer.parseInt;
 
 /**
- * {@code channellist -flags -limits}: ClientQuery has no {@code channelinfo} command (that's ServerQuery-only, and replies "error
- * id=256 msg=command not found" here), so this scans the full channel list for the entry matching {@link #channelId} instead. If a
- * given ClientQuery version doesn't honor {@code -flags}/{@code -limits}, the extra fields are simply absent on that entry, and
- * {@link #parseResponse} falls back to "unknown" for them (never full, no password, subscribed).
+ * {@code channellist -flags -limits}: the full channel list of a server.
  */
 public record ChannelInfoQuery(int channelId) implements TeamSpeakCommand<Channel> {
 

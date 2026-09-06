@@ -2,13 +2,13 @@ package de.rettichlp.teamspeakhud.teamspeak.command;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public sealed interface TeamSpeakCommand<T> permits AuthQuery, WhoAmIQuery, ChannelInfoQuery, ChannelClientListQuery {
+public sealed interface TeamSpeakCommand<T> permits AuthQuery, ChannelClientListQuery, ChannelInfoQuery, ChannelListQuery,
+                                                    ClientDescriptionQuery, ClientListQuery, ClientMoveQuery, WhoAmIQuery {
 
     char BELL = 0x0007;
 
@@ -17,10 +17,6 @@ public sealed interface TeamSpeakCommand<T> permits AuthQuery, WhoAmIQuery, Chan
     @NonNull String commandLine();
 
     T parseResponse(@NonNull String dataLine);
-
-    default @NonNull Response<T> buildResponse(@NonNull String errorLine, @Nullable T data) {
-        return Response.parse(errorLine, data);
-    }
 
     default @NonNull CompletableFuture<Response<T>> send(@NonNull TeamSpeakClient teamSpeakClient) {
         return teamSpeakClient.getRequestQueue().enqueue(this);

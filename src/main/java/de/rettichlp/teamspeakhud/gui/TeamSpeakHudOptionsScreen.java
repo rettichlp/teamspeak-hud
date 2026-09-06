@@ -208,9 +208,6 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         return editBox;
     }
 
-    /**
-     * The slider's own label shows the current value (e.g. "Max shown members: 15"), so it needs no separate label line above it.
-     */
     private void advanceMaxDisplayedMembersSlider(int x) {
         if (!this.measuring) {
             int initialValue = clamp(configuration.getMaxDisplayedMembers(), MIN_DISPLAYED_MEMBERS, MAX_DISPLAYED_MEMBERS);

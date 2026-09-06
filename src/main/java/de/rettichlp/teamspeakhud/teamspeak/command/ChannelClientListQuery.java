@@ -12,7 +12,7 @@ import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.split
 import static java.lang.Integer.parseInt;
 
 /**
- * {@code channelclientlist cid=&lt;channelId&gt; -voice -away}: the full member list of one channel.
+ * {@code channelclientlist cid=<channelId> -voice -away}: the full member list of one channel.
  */
 public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<List<Client>> {
 
@@ -23,7 +23,7 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
 
     @Override
     public @NonNull List<Client> parseResponse(@NonNull String dataLine) {
-        List<Client> entries = new ArrayList<>();
+        List<Client> clients = new ArrayList<>();
 
         for (String rawEntry : splitEntries(dataLine)) {
             Map<String, String> values = parseEntry(rawEntry);
@@ -32,7 +32,7 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
                 continue;
             }
 
-            entries.add(new Client(
+            clients.add(new Client(
                     parseInt(clid),
                     values.getOrDefault("client_nickname", ""),
                     "1".equals(values.get("client_flag_talking")),
@@ -48,6 +48,6 @@ public record ChannelClientListQuery(int channelId) implements TeamSpeakCommand<
             ));
         }
 
-        return entries;
+        return clients;
     }
 }
