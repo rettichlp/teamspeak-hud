@@ -1,11 +1,13 @@
 package de.rettichlp.teamspeakhud;
 
+import de.rettichlp.teamspeakhud.command.TsCommand;
 import de.rettichlp.teamspeakhud.configuration.Configuration;
 import de.rettichlp.teamspeakhud.gui.TSHud;
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
 
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT;
 import static net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED;
 import static net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING;
 import static net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast;
@@ -29,6 +31,8 @@ public class TeamSpeakHud implements ModInitializer {
     @Override
     public void onInitialize() {
         addLast(fromNamespaceAndPath(MOD_ID, "channel_members"), new TSHud(teamSpeakClient));
+
+        EVENT.register((dispatcher, registryAccess) -> TsCommand.register(dispatcher));
 
         CLIENT_STARTED.register(client -> {
             if (configuration.isEnabled()) {

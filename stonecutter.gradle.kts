@@ -9,7 +9,7 @@ stonecutter parameters {
     swaps["minecraft"] = "\"${node.metadata.version}\";"
 
     replacements {
-        // Mojang renamed ResourceLocation -> Identifier starting with 1.21.11
+        // ResourceLocation -> Identifier (starting with 1.21.11)
         string(current.parsed >= "1.21.11") {
             replace("ResourceLocation", "Identifier")
         }

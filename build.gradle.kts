@@ -1,3 +1,7 @@
+import org.gradle.api.JavaVersion.VERSION_17
+import org.gradle.api.JavaVersion.VERSION_21
+import org.gradle.api.JavaVersion.VERSION_25
+
 plugins {
     id("dev.kikugie.loom-back-compat")
     `maven-publish`
@@ -12,16 +16,13 @@ val mcCompat = property("mod.mc_compat") as String
 version = "$modVersion+${sc.current.version}"
 base.archivesName = modId
 
-// Fabric API and ModMenu each only support Java 17/21/25 starting at certain Minecraft versions.
 val requiredJava: JavaVersion = when {
-    sc.current.parsed >= "26.1" -> JavaVersion.VERSION_25
-    sc.current.parsed >= "1.20.5" -> JavaVersion.VERSION_21
-    else -> JavaVersion.VERSION_17
+    sc.current.parsed >= "26.1" -> VERSION_25
+    sc.current.parsed >= "1.20.5" -> VERSION_21
+    else -> VERSION_17
 }
 
 repositories {
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
     mavenCentral()
 
     maven {
@@ -36,12 +37,11 @@ dependencies {
 
     implementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
 
-    // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
 
     // https://mvnrepository.com/artifact/org.projectlombok/lombok
-    compileOnly("org.projectlombok:lombok:1.18.46")
-    annotationProcessor("org.projectlombok:lombok:1.18.46")
+    compileOnly("org.projectlombok:lombok:1.18.48")
+    annotationProcessor("org.projectlombok:lombok:1.18.48")
 
     // https://github.com/TerraformersMC/ModMenu
     modCompileOnly("com.terraformersmc:modmenu:${property("deps.modmenu")}")
@@ -69,8 +69,6 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 java {
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
     withSourcesJar()
 
     sourceCompatibility = requiredJava
@@ -85,24 +83,8 @@ tasks.jar {
     }
 }
 
-// configure the maven publication
-publishing {
-    publications {
-        register<MavenPublication>("mavenJava") {
-            groupId = modGroup
-            from(components["java"])
-        }
-    }
-
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-    repositories {
-        // Add repositories to publish to here.
-    }
-}
-
 loom {
     runConfigs.all {
-        // Shares one `run/` directory across all versions, so you only log in to dev-auth once.
         runDirectory = rootProject.file("run")
     }
 

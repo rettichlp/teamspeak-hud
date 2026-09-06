@@ -1,0 +1,26 @@
+package de.rettichlp.teamspeakhud.teamspeak.command;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Map;
+
+import static de.rettichlp.teamspeakhud.teamspeak.command.TeamSpeakCommand.parseEntry;
+import static java.lang.Integer.parseInt;
+
+public record Response<T>(boolean success, int id, @NonNull String msg, @Nullable T data) {
+
+    private static final int NOT_SENT_ID = -1;
+
+    public static <T> @NonNull Response<T> failedToSend() {
+        return new Response<>(false, NOT_SENT_ID, "", null);
+    }
+
+    public static <T> @NonNull Response<T> parseResponse(@NonNull String errorLine, @Nullable T data) {
+        Map<String, String> values = parseEntry(errorLine);
+        int id = parseInt(values.getOrDefault("id", "-1"));
+        boolean success = id == 0;
+        String msg = values.getOrDefault("msg", "");
+        return new Response<>(success, id, msg, success ? data : null);
+    }
+}

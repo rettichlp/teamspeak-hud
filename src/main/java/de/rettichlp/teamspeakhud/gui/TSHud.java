@@ -1,17 +1,20 @@
 package de.rettichlp.teamspeakhud.gui;
 
 import de.rettichlp.teamspeakhud.teamspeak.TeamSpeakClient;
-import de.rettichlp.teamspeakhud.teamspeak.model.TeamSpeakUser;
+import de.rettichlp.teamspeakhud.teamspeak.model.Client;
 import lombok.RequiredArgsConstructor;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
+import static de.rettichlp.teamspeakhud.TeamSpeakHud.MOD_ID;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
 import static de.rettichlp.teamspeakhud.gui.Icon.CHANNEL_GREEN;
 import static de.rettichlp.teamspeakhud.gui.Icon.CHANNEL_GREEN_SUBSCRIBED;
@@ -32,7 +35,11 @@ import static java.awt.Color.GRAY;
 import static java.awt.Color.WHITE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static net.minecraft.ChatFormatting.ITALIC;
+import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
+import static net.minecraft.network.chat.Component.literal;
 import static net.minecraft.network.chat.Component.translatable;
+import static net.minecraft.resources.Identifier.fromNamespaceAndPath;
 import static net.minecraft.util.ARGB.black;
 
 @RequiredArgsConstructor
@@ -42,6 +49,7 @@ public class TSHud implements HudElement {
     private static final int GAP = 2;
     private static final int ROW_HEIGHT = 9 + 2 * GAP;
     private static final int ICON_SIZE = 9;
+    private static final Identifier WAVE_SPRITE = fromNamespaceAndPath(MOD_ID, "teamspeak/wave");
 
     private final TeamSpeakClient client;
 
@@ -51,24 +59,23 @@ public class TSHud implements HudElement {
             return;
         }
 
-        List<TeamSpeakUser> allTeamSpeakUsers = this.client.getTeamSpeakChannel().getMemberList();
+        List<Client> allTeamSpeakUsers = this.client.getChannel().getClientList();
         if (allTeamSpeakUsers.isEmpty()) {
             return;
         }
 
-        // Cap how many rows are drawn, so a busy channel can't cover half the screen; anything beyond the cap is collapsed into a
-        // single "+N more" row instead of being silently dropped.
+        // cap how many rows are drawn, so a busy channel can't cover half the screen
         int maxDisplayed = max(1, configuration.getMaxDisplayedMembers());
-        List<TeamSpeakUser> teamSpeakUsers = allTeamSpeakUsers.subList(0, min(allTeamSpeakUsers.size(), maxDisplayed));
-        String moreText = allTeamSpeakUsers.size() > teamSpeakUsers.size()
-                ? translatable("tsh.more_messages", allTeamSpeakUsers.size() - teamSpeakUsers.size()).getString()
+        List<Client> clients = allTeamSpeakUsers.subList(0, min(allTeamSpeakUsers.size(), maxDisplayed));
+        String moreText = allTeamSpeakUsers.size() > clients.size()
+                ? translatable("tsh.more_messages", allTeamSpeakUsers.size() - clients.size()).getString()
                 : null;
 
         Minecraft minecraft = Minecraft.getInstance();
         Font font = minecraft.font;
 
-        int rowCount = teamSpeakUsers.size() + (moreText != null ? 1 : 0);
-        int width = getWidth(font, teamSpeakUsers, moreText);
+        int rowCount = clients.size() + (moreText != null ? 1 : 0);
+        int width = getWidth(font, clients, moreText);
         int height = PADDING * 2 + ROW_HEIGHT * (rowCount + 1);
 
         int x = graphics.guiWidth() - 2 - width;
@@ -83,10 +90,24 @@ public class TSHud implements HudElement {
         getChannelIcon().draw(graphics, rowX, rowY + ROW_HEIGHT / 2 - ICON_SIZE / 2, ICON_SIZE);
         graphics.text(font, getChannelName(), rowX + ICON_SIZE + GAP, rowY + ROW_HEIGHT / 2 - font.lineHeight / 2, GRAY.brighter().getRGB());
 
-        for (TeamSpeakUser teamSpeakUser : teamSpeakUsers) {
+        for (Client client : clients) {
             rowY += ROW_HEIGHT;
-            getIcon(teamSpeakUser).draw(graphics, rowX, rowY + GAP, ICON_SIZE);
-            graphics.text(font, teamSpeakUser.getNickname(), rowX + ICON_SIZE + GAP, rowY + ROW_HEIGHT / 2 - font.lineHeight / 2, WHITE.getRGB());
+            getIcon(client).draw(graphics, rowX, rowY + GAP, ICON_SIZE);
+
+            MutableComponent nickname = literal(client.getNickname());
+            int textY = rowY + ROW_HEIGHT / 2 - font.lineHeight / 2;
+            int textX = rowX + ICON_SIZE + GAP;
+
+            if (client.hasJoinHighlight()) {
+                graphics.blitSprite(GUI_TEXTURED, WAVE_SPRITE, textX, rowY + GAP, ICON_SIZE, ICON_SIZE);
+                textX += ICON_SIZE + GAP;
+            }
+
+            if (client.hasLeavingHighlight()) {
+                graphics.text(font, nickname.withStyle(ITALIC), textX, textY, GRAY.getRGB());
+            } else {
+                graphics.text(font, nickname, textX, textY, WHITE.getRGB());
+            }
         }
 
         if (moreText != null) {
@@ -95,10 +116,13 @@ public class TSHud implements HudElement {
         }
     }
 
-    private int getWidth(@NonNull Font font, @NonNull Iterable<TeamSpeakUser> teamSpeakUsers, String moreText) {
+    private int getWidth(@NonNull Font font, @NonNull Iterable<Client> clients, String moreText) {
         int contentWidth = ICON_SIZE + GAP + font.width(getChannelName());
-        for (TeamSpeakUser member : teamSpeakUsers) {
-            int rowWidth = ICON_SIZE + GAP + font.width(member.getNickname());
+        for (Client client : clients) {
+            int rowWidth = ICON_SIZE + GAP + font.width(client.getNickname());
+            if (client.hasJoinHighlight()) {
+                rowWidth += ICON_SIZE + GAP;
+            }
             contentWidth = max(contentWidth, rowWidth);
         }
 
@@ -110,13 +134,13 @@ public class TSHud implements HudElement {
     }
 
     private Icon getChannelIcon() {
-        boolean subscribed = this.client.getTeamSpeakChannel().isSubscribed();
+        boolean subscribed = this.client.getChannel().isSubscribed();
 
-        if (this.client.getTeamSpeakChannel().isFull()) {
+        if (this.client.getChannel().isFull()) {
             return subscribed ? CHANNEL_RED_SUBSCRIBED : CHANNEL_RED;
         }
 
-        if (this.client.getTeamSpeakChannel().isPasswordProtected()) {
+        if (this.client.getChannel().isPasswordProtected()) {
             return subscribed ? CHANNEL_YELLOW_SUBSCRIBED : CHANNEL_YELLOW;
         }
 
@@ -124,35 +148,35 @@ public class TSHud implements HudElement {
     }
 
     private String getChannelName() {
-        String channelName = this.client.getTeamSpeakChannel().getName();
+        String channelName = this.client.getChannel().getName();
         return channelName.isEmpty() ? "TeamSpeak" : channelName;
     }
 
-    private Icon getIcon(@NonNull TeamSpeakUser member) {
-        if (member.isLocallyMuted()) {
+    private Icon getIcon(@NonNull Client client) {
+        if (client.isLocallyMuted()) {
             return LOCALLY_MUTED;
         }
 
-        if (member.isOutputHardwareDisabled()) {
+        if (client.isOutputHardwareDisabled()) {
             return HARDWARE_OUTPUT_MUTED;
         }
 
-        if (member.isOutputMuted()) {
+        if (client.isOutputMuted()) {
             return OUTPUT_MUTED;
         }
 
-        if (member.isInputHardwareDisabled()) {
+        if (client.isInputHardwareDisabled()) {
             return HARDWARE_INPUT_MUTED;
         }
 
-        if (member.isInputMuted()) {
+        if (client.isInputMuted()) {
             return INPUT_MUTED;
         }
 
-        if (member.isChannelCommander()) {
-            return member.isTalking() ? PLAYER_COMMANDER_ON : PLAYER_COMMANDER_OFF;
+        if (client.isChannelCommander()) {
+            return client.isTalking() ? PLAYER_COMMANDER_ON : PLAYER_COMMANDER_OFF;
         }
 
-        return member.isTalking() ? PLAYER_ON : PLAYER_OFF;
+        return client.isTalking() ? PLAYER_ON : PLAYER_OFF;
     }
 }

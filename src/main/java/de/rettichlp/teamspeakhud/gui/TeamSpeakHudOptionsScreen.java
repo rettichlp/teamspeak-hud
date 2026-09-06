@@ -15,16 +15,19 @@ import org.jspecify.annotations.NonNull;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import static de.rettichlp.teamspeakhud.TeamSpeakHud.MOD_NAME;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.configuration;
 import static de.rettichlp.teamspeakhud.TeamSpeakHud.teamSpeakClient;
 import static java.awt.Color.GRAY;
 import static java.awt.Color.WHITE;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
+import static java.lang.Math.round;
 import static net.minecraft.client.gui.components.Checkbox.getBoxSize;
 import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
 import static net.minecraft.network.chat.CommonComponents.EMPTY;
 import static net.minecraft.network.chat.CommonComponents.GUI_DONE;
+import static net.minecraft.network.chat.Component.literal;
 import static net.minecraft.network.chat.Component.translatable;
 import static net.minecraft.resources.Identifier.withDefaultNamespace;
 
@@ -58,7 +61,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     private int panelHeight;
 
     public TeamSpeakHudOptionsScreen(Screen parent) {
-        super(translatable("tsh.options.title"));
+        super(literal(MOD_NAME));
         this.parent = parent;
     }
 
@@ -86,7 +89,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         configuration.setManualApiKey(manualApiKey);
         configuration.saveToFile();
 
-        // Only touch the connection if enablement changed, or a still-enabled mod got a different API key.
+        // only touch connection if enablement changed, or a still-enabled mod got a different API key
         if (enabled && (!wasEnabled || !manualApiKey.equals(previousApiKey))) {
             teamSpeakClient.stop();
             teamSpeakClient.start();
@@ -101,7 +104,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     protected void init() {
         this.textLines.clear();
 
-        // First pass only measures the total content height (no widgets/text are created), so the panel can be centered on screen.
+        // first pass only measures the total content height (no widgets/text are created), so the panel can be centered on screen
         this.measuring = true;
         this.cursorY = 0;
         buildLayout();
@@ -109,7 +112,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         this.panelX = this.width / 2 - PANEL_WIDTH / 2;
         this.panelY = max(10, this.height / 2 - this.panelHeight / 2);
 
-        // Second pass repeats the exact same steps, now actually placing widgets and text at their final coordinates.
+        // second pass repeats the exact same steps, now actually placing widgets and text at their final coordinates
         this.measuring = false;
         this.cursorY = this.panelY + PADDING;
         buildLayout();
@@ -205,9 +208,6 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         return editBox;
     }
 
-    /**
-     * The slider's own label shows the current value (e.g. "Max shown members: 15"), so it needs no separate label line above it.
-     */
     private void advanceMaxDisplayedMembersSlider(int x) {
         if (!this.measuring) {
             int initialValue = clamp(configuration.getMaxDisplayedMembers(), MIN_DISPLAYED_MEMBERS, MAX_DISPLAYED_MEMBERS);
@@ -220,7 +220,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
 
                 @Override
                 protected void updateMessage() {
-                    TeamSpeakHudOptionsScreen.this.maxDisplayedMembers = MIN_DISPLAYED_MEMBERS + (int) Math.round(this.value * (MAX_DISPLAYED_MEMBERS - MIN_DISPLAYED_MEMBERS));
+                    TeamSpeakHudOptionsScreen.this.maxDisplayedMembers = MIN_DISPLAYED_MEMBERS + (int) round(this.value * (MAX_DISPLAYED_MEMBERS - MIN_DISPLAYED_MEMBERS));
                     this.setMessage(translatable("tsh.options.max_displayed_members", TeamSpeakHudOptionsScreen.this.maxDisplayedMembers));
                 }
 
