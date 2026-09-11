@@ -47,7 +47,7 @@ dependencies {
     modCompileOnly("com.terraformersmc:modmenu:${property("deps.modmenu")}")
 
     // https://modrinth.com/mod/dev-auth-neo
-    localRuntime("net.litetex.mcm:dev-auth-neo:1.1.1")
+    localRuntime("net.litetex.mcm:dev-auth-neo:1.2.0")
 }
 
 tasks.processResources {
