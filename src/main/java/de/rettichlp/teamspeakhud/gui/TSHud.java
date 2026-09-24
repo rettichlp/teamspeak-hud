@@ -65,8 +65,10 @@ public class TSHud implements HudElement {
         }
 
         // cap how many rows are drawn, so a busy channel can't cover half the screen
-        int maxDisplayed = max(1, configuration.getMaxDisplayedMembers());
-        List<Client> clients = allTeamSpeakUsers.subList(0, min(allTeamSpeakUsers.size(), maxDisplayed));
+        int maxDisplayed = max(0, configuration.getMaxDisplayedMembers());
+        List<Client> clients = maxDisplayed == 0
+                ? allTeamSpeakUsers.stream().filter(Client::hasActiveAction).toList()
+                : allTeamSpeakUsers.subList(0, min(allTeamSpeakUsers.size(), maxDisplayed));
         String moreText = allTeamSpeakUsers.size() > clients.size()
                 ? translatable("tsh.more_messages", allTeamSpeakUsers.size() - clients.size()).getString()
                 : null;

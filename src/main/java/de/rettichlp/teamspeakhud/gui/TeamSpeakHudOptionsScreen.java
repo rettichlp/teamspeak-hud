@@ -41,7 +41,7 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     private static final int GAP = 4;
     private static final int GAP_SECTION = 14;
     private static final int INPUT_HEIGHT = 20;
-    private static final int MIN_DISPLAYED_MEMBERS = 1;
+    private static final int MIN_DISPLAYED_MEMBERS = 0;
     private static final int MAX_DISPLAYED_MEMBERS = 100;
 
     private final Screen parent;
@@ -221,7 +221,9 @@ public class TeamSpeakHudOptionsScreen extends Screen {
                 @Override
                 protected void updateMessage() {
                     TeamSpeakHudOptionsScreen.this.maxDisplayedMembers = MIN_DISPLAYED_MEMBERS + (int) round(this.value * (MAX_DISPLAYED_MEMBERS - MIN_DISPLAYED_MEMBERS));
-                    this.setMessage(translatable("tsh.options.max_displayed_members", TeamSpeakHudOptionsScreen.this.maxDisplayedMembers));
+                    this.setMessage(TeamSpeakHudOptionsScreen.this.maxDisplayedMembers == 0
+                            ? translatable("tsh.options.max_displayed_members.active_only")
+                            : translatable("tsh.options.max_displayed_members", TeamSpeakHudOptionsScreen.this.maxDisplayedMembers));
                 }
 
                 @Override

@@ -50,7 +50,8 @@ public class Configuration {
 
     /**
      * Caps how many channel members the HUD list shows at once, so a busy channel doesn't cover half the screen. Any members beyond
-     * this are collapsed into a single "+N more" row instead of being drawn individually.
+     * this are collapsed into a single "+N more" row instead of being drawn individually. {@code 0} means only members with an active
+     * action (talking, recently joined or left) are shown.
      */
     private int maxDisplayedMembers = 15;
 

@@ -17,7 +17,8 @@
   "tsh.options.notifications.channel_message": "Channel message notifications",
   "tsh.options.notifications.description": "Shows a notification in the top-right corner for the selected types.",
   "tsh.options.max_displayed_members": "Max shown members: %s",
-  "tsh.options.max_displayed_members.description": "Limits how many members are listed at once.",
+  "tsh.options.max_displayed_members.active_only": "Max shown members: Active only",
+  "tsh.options.max_displayed_members.description": "Limits how many members are listed at once. At 0, only members who are talking or have just joined or left are listed.",
   "tsh.options.manual_api_key": "Manual API key",
   "tsh.options.manual_api_key.description": "Overrides the API key used to connect to TeamSpeak's ClientQuery plugin. Leave this empty to detect it automatically."
 }
