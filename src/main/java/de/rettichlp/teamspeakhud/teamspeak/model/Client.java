@@ -94,4 +94,18 @@ public class Client {
     public boolean hasActiveAction() {
         return this.talking || hasJoinHighlight() || hasLeavingHighlight();
     }
+
+    /**
+     * Whether this member has an enabled output device.
+     */
+    public boolean hasEnabledOutputDevice() {
+        return !this.outputMuted && !this.outputHardwareDisabled;
+    }
+
+    /**
+     * Whether this member has an enabled input device.
+     */
+    public boolean hasEnabledInputDevice() {
+        return !this.inputMuted && !this.inputHardwareDisabled;
+    }
 }

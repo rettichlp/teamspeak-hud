@@ -34,7 +34,6 @@ import static de.rettichlp.teamspeakhud.gui.Icon.PLAYER_ON;
 import static java.awt.Color.GRAY;
 import static java.awt.Color.WHITE;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static net.minecraft.ChatFormatting.ITALIC;
 import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
 import static net.minecraft.network.chat.Component.literal;
@@ -64,20 +63,26 @@ public class TSHud implements HudElement {
             return;
         }
 
-        // cap how many rows are drawn, so a busy channel can't cover half the screen
+        // cap how many rows are drawn
         int maxDisplayed = max(0, configuration.getMaxDisplayedMembers());
-        List<Client> clients = maxDisplayed == 0
-                ? allTeamSpeakUsers.stream().filter(Client::hasActiveAction).toList()
-                : allTeamSpeakUsers.subList(0, min(allTeamSpeakUsers.size(), maxDisplayed));
-        String moreText = allTeamSpeakUsers.size() > clients.size()
-                ? translatable("tsh.more_messages", allTeamSpeakUsers.size() - clients.size()).getString()
+        boolean showInactiveMembers = maxDisplayed != 0;
+        List<Client> visibleClients = allTeamSpeakUsers.stream()
+                .filter(client -> !configuration.isHideMembersWithDisabledOutputDevice() || client.hasEnabledOutputDevice())
+                .filter(client -> !configuration.isHideMembersWithDisabledInputDevice() || client.hasEnabledInputDevice())
+                .filter(client -> showInactiveMembers || client.hasActiveAction())
+                .limit(maxDisplayed)
+                .toList();
+
+        // all hidden members aren't drawn individually but still end up in the "+N more" row
+        String moreText = allTeamSpeakUsers.size() > visibleClients.size()
+                ? translatable("tsh.more_messages", allTeamSpeakUsers.size() - visibleClients.size()).getString()
                 : null;
 
         Minecraft minecraft = Minecraft.getInstance();
         Font font = minecraft.font;
 
-        int rowCount = clients.size() + (moreText != null ? 1 : 0);
-        int width = getWidth(font, clients, moreText);
+        int rowCount = visibleClients.size() + (moreText != null ? 1 : 0);
+        int width = getWidth(font, visibleClients, moreText);
         int height = PADDING * 2 + ROW_HEIGHT * (rowCount + 1);
 
         int x = graphics.guiWidth() - 2 - width;
@@ -92,7 +97,7 @@ public class TSHud implements HudElement {
         getChannelIcon().draw(graphics, rowX, rowY + ROW_HEIGHT / 2 - ICON_SIZE / 2, ICON_SIZE);
         graphics.text(font, getChannelName(), rowX + ICON_SIZE + GAP, rowY + ROW_HEIGHT / 2 - font.lineHeight / 2, GRAY.brighter().getRGB());
 
-        for (Client client : clients) {
+        for (Client client : visibleClients) {
             rowY += ROW_HEIGHT;
             getIcon(client).draw(graphics, rowX, rowY + GAP, ICON_SIZE);
 

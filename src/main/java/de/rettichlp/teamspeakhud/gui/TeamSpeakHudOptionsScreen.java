@@ -51,6 +51,8 @@ public class TeamSpeakHudOptionsScreen extends Screen {
     private Checkbox pokeNotificationsCheckbox;
     private Checkbox privateMessageNotificationsCheckbox;
     private Checkbox channelMessageNotificationsCheckbox;
+    private Checkbox hideMembersWithDisabledOutputDeviceCheckbox;
+    private Checkbox hideMembersWithDisabledInputDeviceCheckbox;
     private EditBox manualApiKeyBox;
     private int maxDisplayedMembers;
 
@@ -86,6 +88,8 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         configuration.setPrivateMessageNotificationsEnabled(this.privateMessageNotificationsCheckbox.selected());
         configuration.setChannelMessageNotificationsEnabled(this.channelMessageNotificationsCheckbox.selected());
         configuration.setMaxDisplayedMembers(this.maxDisplayedMembers);
+        configuration.setHideMembersWithDisabledOutputDevice(this.hideMembersWithDisabledOutputDeviceCheckbox.selected());
+        configuration.setHideMembersWithDisabledInputDevice(this.hideMembersWithDisabledInputDeviceCheckbox.selected());
         configuration.setManualApiKey(manualApiKey);
         configuration.saveToFile();
 
@@ -147,6 +151,13 @@ public class TeamSpeakHudOptionsScreen extends Screen {
         advanceMaxDisplayedMembersSlider(contentX);
         advanceGap(GAP);
         advanceDescription(translatable("tsh.options.max_displayed_members.description"), contentX);
+        advanceGap(GAP_SECTION);
+
+        this.hideMembersWithDisabledOutputDeviceCheckbox = advanceCheckbox(translatable("tsh.options.hide_members.disabled_output_device"), contentX, configuration.isHideMembersWithDisabledOutputDevice());
+        advanceGap(GAP);
+        this.hideMembersWithDisabledInputDeviceCheckbox = advanceCheckbox(translatable("tsh.options.hide_members.disabled_input_device"), contentX, configuration.isHideMembersWithDisabledInputDevice());
+        advanceGap(GAP);
+        advanceDescription(translatable("tsh.options.hide_members.description"), contentX);
         advanceGap(GAP_SECTION);
 
         advanceLabel(translatable("tsh.options.manual_api_key"), contentX);
