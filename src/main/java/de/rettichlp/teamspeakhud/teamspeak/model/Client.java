@@ -86,4 +86,12 @@ public class Client {
     public boolean hasLeavingHighlight() {
         return this.leftAt != 0;
     }
+
+    /**
+     * Whether this member is currently doing something worth showing in the HUD, i.e. is talking or has recently joined or left the
+     * channel.
+     */
+    public boolean hasActiveAction() {
+        return this.talking || hasJoinHighlight() || hasLeavingHighlight();
+    }
 }
