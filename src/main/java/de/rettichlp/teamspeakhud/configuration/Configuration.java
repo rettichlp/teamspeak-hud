@@ -55,6 +55,16 @@ public class Configuration {
      */
     private int maxDisplayedMembers = 15;
 
+    /**
+     * Whether members with a disabled output device are left out of the HUD list and only counted in the "+N more" row.
+     */
+    private boolean hideMembersWithDisabledOutputDevice = true;
+
+    /**
+     * Whether members with a disabled input device are left out of the HUD list and only counted in the "+N more" row.
+     */
+    private boolean hideMembersWithDisabledInputDevice = false;
+
     public Configuration loadFromFile() {
         File file = CONFIG_PATH.toFile();
 
